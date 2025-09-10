@@ -1,0 +1,70 @@
+{
+  "name": "shopscribe-live-shopping",
+  "version": "1.0.0",
+  "description": "Live Shopping App powered by Agora Web SDK and Conversational AI",
+  "private": true,
+  "dependencies": {
+    "@netlify/blobs": "^10.0.10",
+    "autoprefixer": "^10.4.16",
+    "axios": "^1.11.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "framer-motion": "^10.16.5",
+    "lucide-react": "^0.294.0",
+    "node-fetch": "^3.3.2",
+    "postcss": "^8.4.32",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "react-router-dom": "^6.8.0",
+    "react-scripts": "5.0.1",
+    "socket.io-client": "^4.7.4",
+    "tailwindcss": "^3.3.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "start-ngrok": "DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts start",
+    "start-external": "DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts start",
+    "build": "CI=false react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "dev": "netlify dev",
+    "preview": "netlify dev"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "homepage": ".",
+  "proxy": "http://localhost:8888",
+  "devDependencies": {
+    "netlify-cli": "^23.5.0"
+  },
+  "keywords": [
+    "agora",
+    "live-shopping",
+    "conversational-ai",
+    "whatnot",
+    "ecommerce"
+  ],
+  "author": "ShopScribe Team",
+  "license": "MIT"
+}
