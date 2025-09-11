@@ -1,9 +1,12 @@
 [build]
   publish = "build"
-  command = "npm run build"
+  command = "npm ci && npm run build"
+  base = "."
 
 [build.environment]
   NODE_VERSION = "18"
+  CI = "false"
+  NODE_ENV = "production"
 
 [[redirects]]
   from = "/api/*"

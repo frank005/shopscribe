@@ -53,7 +53,7 @@
       "last 1 safari version"
     ]
   },
-  "homepage": ".",
+  "homepage": "./",
   "proxy": "http://localhost:8888",
   "devDependencies": {
     "netlify-cli": "^23.5.0"
