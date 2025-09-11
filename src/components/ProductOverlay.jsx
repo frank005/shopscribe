@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff } from 'lucide-react';
 import { formatProductForDisplay } from '../utils/product-sync';
 import { getProductThemeConfig } from '../services/config';
 
@@ -10,12 +10,20 @@ import { getProductThemeConfig } from '../services/config';
  * @param {Object} props.product - Product object to display
  * @param {boolean} props.visible - Whether overlay is visible
  * @param {Function} props.onClose - Callback when overlay is closed
+ * @param {Function} props.onNext - Callback for next product (host only)
+ * @param {Function} props.onCopy - Callback for copying product (host only)
+ * @param {Function} props.onExport - Callback for exporting history (host only)
+ * @param {boolean} props.isHost - Whether current user is host
  * @param {string} props.className - Additional CSS classes
  */
 export default function ProductOverlay({ 
   product, 
   visible, 
   onClose, 
+  onNext,
+  onCopy,
+  onExport,
+  isHost = false,
   className = '' 
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -30,6 +38,24 @@ export default function ProductOverlay({
   if (!formattedProduct.hasContent) {
     return null;
   }
+
+  const handleCopy = () => {
+    if (onCopy) {
+      onCopy(product);
+    }
+  };
+
+  const handleExport = () => {
+    if (onExport) {
+      onExport();
+    }
+  };
+
+  const handleNext = () => {
+    if (onNext) {
+      onNext();
+    }
+  };
 
   return (
     <div className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-start p-3 sm:p-4 ${className}`}>
@@ -62,15 +88,54 @@ export default function ProductOverlay({
               )}
             </div>
             
-            {onClose && (
-              <button
-                onClick={onClose}
-                className={`ml-2 rounded-xl border px-2 py-1 text-xs hover:opacity-80 transition-opacity ${themeConfig.borderColor} ${themeConfig.textColor}`}
-                aria-label="Hide product overlay"
-              >
-                <X size={14} />
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {isHost && (
+                <>
+                  {onCopy && (
+                    <button
+                      onClick={handleCopy}
+                      className={`rounded-xl border px-2 py-1 text-xs hover:opacity-80 transition-opacity ${themeConfig.borderColor} ${themeConfig.textColor}`}
+                      aria-label="Copy product info"
+                      title="Copy product info"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  )}
+                  
+                  {onExport && (
+                    <button
+                      onClick={handleExport}
+                      className={`rounded-xl border px-2 py-1 text-xs hover:opacity-80 transition-opacity ${themeConfig.borderColor} ${themeConfig.textColor}`}
+                      aria-label="Export product history"
+                      title="Export product history"
+                    >
+                      <Download size={14} />
+                    </button>
+                  )}
+                  
+                  {onNext && (
+                    <button
+                      onClick={handleNext}
+                      className={`rounded-xl border px-2 py-1 text-xs hover:opacity-80 transition-opacity ${themeConfig.borderColor} ${themeConfig.textColor}`}
+                      aria-label="Next product"
+                      title="Next product"
+                    >
+                      Next
+                    </button>
+                  )}
+                </>
+              )}
+              
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className={`ml-1 rounded-xl border px-2 py-1 text-xs hover:opacity-80 transition-opacity ${themeConfig.borderColor} ${themeConfig.textColor}`}
+                  aria-label="Hide product overlay"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
           </div>
 
           {formattedProduct.details.length > 0 && (

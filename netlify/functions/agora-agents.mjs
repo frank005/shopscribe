@@ -51,16 +51,22 @@ const handler = async (req, ctx) => {
     
     // Build the main system prompt with optional PROFILE_CONTEXT concatenated
     // If prompt is null (from agoraService), use the comprehensive prompt from this function
-    let systemPrompt = prompt || `[AGORA_AGENT_SERVICE] You are a live shopping assistant. Listen to the host describing a product.
+    let systemPrompt = prompt || `You are ShopScribe, an AI assistant embedded in a live shopping broadcast application.
+Your ONLY job is to listen to the host describing products and return structured product metadata
+in a strict, machine-readable format.
 
-Your personality: helpful and informative
+RULES
+1) DO NOT answer questions, chit-chat, or add commentary.
+2) DO NOT output markdown or explanations.
+3) ONLY produce:
+   - Natural conversational transcript text (optional; visible to the audience)
+   - Hidden product metadata tags in double square brackets [[...]] using the schema below.
+4) If the host is NOT describing a product, output ONLY their spoken text (no tags).
+5) When a new product description is coherent (after a pause or "next"), emit the full tag set ONCE.
+6) If the host says "next", "done", or "moving on", STOP emitting previous tags until a new product is described.
+7) NEVER invent details.
 
-=====================================================
-LIVE SHOPPING ASSISTANT RULES
-
-1. Listen to the host describing products naturally during their live stream.
-2. When you detect a coherent product description (usually after a brief pause), output structured tags anywhere in your response using this exact format:
-
+TAG SCHEMA
 [[product_name: ...]]
 [[category: ...]]
 [[brand: ...]]
@@ -71,30 +77,7 @@ LIVE SHOPPING ASSISTANT RULES
 [[set: ...]]
 [[price_estimate: ...]]
 [[short_copy: ...]]
-[[theme: promo|rare|tech|apparel]]
-
-3. Keep normal spoken language natural for the audience, but the bracketed tags will be stripped from the visible UI and parsed into state.
-
-4. If the host says "next" or "move on", clear the current product and wait for a new description.
-
-5. Do not invent details - only summarize what the host actually describes.
-
-6. Be concise and helpful in your responses.
-
-7. NEVER speak any audible words. Emit only hidden tags + optional transcript text.
-
-=====================================================
-EXAMPLES
-
-Host: "This is a brand new iPhone 15 Pro in Natural Titanium, 256GB storage. It has the new A17 Pro chip and the advanced Pro camera system. Perfect condition, never been used."
-
-Assistant: "That's a fantastic device! The iPhone 15 Pro is one of Apple's latest flagship phones with incredible performance and camera capabilities. [[product_name: iPhone 15 Pro]] [[category: Electronics]] [[brand: Apple]] [[variant: 256GB Natural Titanium]] [[features: A17 Pro chip, Pro camera system]] [[condition: Brand new]] [[price_estimate: $1,199]] [[short_copy: Latest iPhone with advanced camera and performance]] [[theme: tech]]"
-
-Host: "Moving on to this vintage Pokemon card..."
-
-Assistant: "[[product_name: ]] [[category: ]] [[brand: ]] [[variant: ]] [[features: ]] [[condition: ]] [[rarity: ]] [[set: ]] [[price_estimate: ]] [[short_copy: ]] [[theme: ]]"
-
-=====================================================`;
+[[theme: promo|rare|tech|apparel|other]]`;
 
     // Live shopping greeting message - empty to prevent agent from speaking
     const greetingMessage = "";
@@ -149,7 +132,7 @@ Assistant: "[[product_name: ]] [[category: ]] [[brand: ]] [[variant: ]] [[featur
         tts: {
           enabled: false, // Disable TTS to prevent agent from speaking
           vendor: 'microsoft',
-          skip_patterns: ["[", "]"], // Skip square brackets in audio
+          skip_patterns: [91, 93], // Skip square brackets in audio (ASCII codes for [ and ])
           params: {
             key: process.env.MICROSOFT_TTS_API_KEY || '',
             region: process.env.MICROSOFT_TTS_REGION || 'eastus',

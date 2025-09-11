@@ -48,12 +48,15 @@ export async function getChannelList({ page = 1, pageSize = 20, search = '', wit
       throw new Error('Invalid response format');
     }
     
+    // Handle nested data structure from Netlify function
+    const responseData = data.data || data;
+    
     return {
-      page: data.page || page,
-      pageSize: data.pageSize || pageSize,
-      total: data.total || 0,
-      channels: data.channels || [],
-      success: true
+      page: responseData.page || page,
+      pageSize: responseData.pageSize || pageSize,
+      total: responseData.total || 0,
+      channels: responseData.channels || [],
+      success: data.success !== false
     };
   } catch (error) {
     console.error('Error fetching channel list:', error);

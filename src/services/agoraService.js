@@ -386,6 +386,8 @@ class AgoraService {
       console.log('👤 User published:', user.uid, mediaType);
       console.log('👤 User object:', user);
       console.log('👤 Media type:', mediaType);
+      console.log('👤 Current client role:', this.rtcEngine.role);
+      console.log('👤 RTC connection state:', this.rtcEngine.connectionState);
       
       // Store the remote user for potential control
       this.remoteUser = user;
@@ -396,6 +398,8 @@ class AgoraService {
         await this.subscribeToAudio(user);
       } else if (mediaType === 'video') {
         console.log('📺 Subscribing to video...');
+        console.log('📺 Video track available:', !!user.videoTrack);
+        console.log('📺 Video track details:', user.videoTrack);
         // Subscribe to video by default
         await this.subscribeToVideo(user);
       }
@@ -494,6 +498,12 @@ class AgoraService {
     
     try {
       console.log('📺 Subscribing to remote video for user:', user.uid);
+      console.log('📺 RTC engine state before subscribe:', {
+        connectionState: this.rtcEngine.connectionState,
+        role: this.rtcEngine.role,
+        mode: this.rtcEngine.mode
+      });
+      
       await this.rtcEngine.subscribe(user, 'video');
       console.log('✅ Subscribed to remote video');
       

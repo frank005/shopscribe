@@ -21,49 +21,74 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
 
   const pageSize = 20;
 
-  // Fetch channels
+  // Fetch host information for a specific channel
+  const fetchHostInfo = async (channelName) => {
+    try {
+      const response = await fetch(`/.netlify/functions/agora-hosts?channel=${encodeURIComponent(channelName)}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        return {
+          hostCount: data.data.hostCount,
+          viewerCount: data.data.viewerCount,
+          totalUsers: data.data.totalUsers
+        };
+      } else {
+        console.warn(`Failed to fetch host info for ${channelName}:`, data.error);
+        return { hostCount: 0, viewerCount: 0, totalUsers: 0 };
+      }
+    } catch (error) {
+      console.warn(`Error fetching host info for ${channelName}:`, error);
+      return { hostCount: 0, viewerCount: 0, totalUsers: 0 };
+    }
+  };
+
+  // Fetch channels with host information
   const fetchChannels = useCallback(async (page = 1, search = '') => {
     try {
       setError(null);
+      
+      // Step 1: Get channel list
       const response = await getChannelList({ 
         page, 
         pageSize, 
         search: search.trim(),
-        withHosts: true
+        withHosts: false // Don't ask server for host info, we'll get it ourselves
       });
 
       if (response.success) {
-        console.log('📊 Client received channels:', response.channels);
-        console.log('📊 Channel details:', response.channels.map(ch => ({
-          name: ch.channel_name,
-          userCount: ch.user_count,
-          hostCount: ch.hostCount,
-          viewerCount: ch.viewerCount,
-          rawChannel: ch
-        })));
+        console.log('📊 Step 1 - Channel list received:', response.channels);
         
-        // Fallback: if server didn't process host/viewer counts, do it client-side
-        const processedChannels = response.channels.map(channel => {
-          if (channel.hostCount === undefined || channel.viewerCount === undefined) {
-            const totalUsers = channel.user_count || 0;
-            const hostCount = totalUsers > 0 ? 1 : 0;
-            const viewerCount = Math.max(0, totalUsers - hostCount);
-            console.log('📊 Client-side fallback processing:', {
-              channel: channel.channel_name,
+        // Step 2: For each channel, get host and audience information
+        const channelsWithHosts = await Promise.all(
+          response.channels.map(async (channel) => {
+            const hostInfo = await fetchHostInfo(channel.channel_name);
+            console.log(`📊 Step 2 - Host info for ${channel.channel_name}:`, hostInfo);
+            
+            // Use the exact counts from the host API
+            const totalUsers = hostInfo.totalUsers || 0;
+            const hostCount = hostInfo.hostCount || 0;
+            const viewerCount = hostInfo.viewerCount || 0;
+            
+            console.log(`📊 Step 3 - Final counts for ${channel.channel_name}:`, {
               totalUsers,
               hostCount,
               viewerCount
             });
+            
             return {
               ...channel,
+              name: channel.channel_name,
               hostCount,
-              viewerCount
+              viewerCount,
+              totalUsers
             };
-          }
-          return channel;
-        });
+          })
+        );
         
-        setChannels(processedChannels);
+        console.log('📊 Final processed channels:', channelsWithHosts);
+        
+        setChannels(channelsWithHosts);
         setTotalChannels(response.total);
         setTotalPages(Math.ceil(response.total / pageSize));
         setCurrentPage(page);
@@ -83,16 +108,16 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
     fetchChannels(1, searchTerm);
   }, [fetchChannels, searchTerm]);
 
-  // Auto-refresh every 10 seconds - only when component is visible
+  // Auto-refresh every 10 seconds - only when component is visible and not searching
   useEffect(() => {
     // Check if the component is actually visible on the page
     const isVisible = document.visibilityState === 'visible' && 
                      window.location.pathname === '/lobby';
     
-    if (!isVisible) return;
+    if (!isVisible || searchTerm.trim()) return; // Don't auto-refresh when searching
     
     const interval = setInterval(() => {
-      if (!loading && !refreshing && document.visibilityState === 'visible') {
+      if (!loading && !refreshing && document.visibilityState === 'visible' && !searchTerm.trim()) {
         setRefreshing(true);
         fetchChannels(currentPage, searchTerm);
       }
@@ -101,11 +126,22 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
     return () => clearInterval(interval);
   }, [fetchChannels, currentPage, searchTerm, loading, refreshing]);
 
-  // Handle search
-  const handleSearch = (value) => {
+  // Handle search with debounce
+  const handleSearch = useCallback((value) => {
     setSearchTerm(value);
     setCurrentPage(1);
-  };
+  }, []);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== '') {
+        fetchChannels(1, searchTerm);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, fetchChannels]);
 
   // Handle page change
   const handlePageChange = (page) => {
@@ -145,6 +181,7 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
 
   // Format channel name for display
   const formatChannelName = (name) => {
+    if (!name) return 'Unknown Channel';
     return name.replace(/^shopscribe_/, '').replace(/_/g, ' ');
   };
 

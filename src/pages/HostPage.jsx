@@ -2,10 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { CONFIG, generateChannelName } from '../services/config';
 import agoraService from '../services/agoraService';
-import { parseProductTags, isProductDisplayable } from '../utils/product-sync';
+import { parseProductTags, isProductDisplayable, stripTags } from '../utils/product-sync';
 import { cleanSubtitleText } from '../utils/subtitle-clean';
+import { 
+  getProductHistory, 
+  saveProductHistory, 
+  addProductToHistory, 
+  clearProductHistory, 
+  exportProductHistory, 
+  copyProductToClipboard 
+} from '../utils/productHistory';
 import VideoStage from '../components/VideoStage';
 import ProductOverlay from '../components/ProductOverlay';
+import ProductHistory from '../components/ProductHistory';
 import HostControls from '../components/HostControls';
 import ProductSidebar from '../components/ProductSidebar';
 
@@ -21,6 +30,35 @@ export default function HostPage() {
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [transcript, setTranscript] = useState('');
   const [channelName, setChannelName] = useState('');
+
+  // Load product history on component mount
+  useEffect(() => {
+    const history = getProductHistory();
+    setProductHistory(history);
+  }, []);
+
+  // Product control handlers
+  const handleProductCopy = useCallback((product) => {
+    copyProductToClipboard(product);
+    toast.success('Product copied to clipboard');
+  }, []);
+
+  const handleProductExport = useCallback(() => {
+    exportProductHistory(productHistory);
+    toast.success('Product history exported');
+  }, [productHistory]);
+
+  const handleProductNext = useCallback(() => {
+    setCurrentProduct(null);
+    setOverlayVisible(false);
+    toast.success('Moving to next product');
+  }, []);
+
+  const handleProductHistoryClear = useCallback(() => {
+    clearProductHistory();
+    setProductHistory([]);
+    toast.success('Product history cleared');
+  }, []);
 
   // Initialize connection
   const initializeConnection = useCallback(async () => {
@@ -128,11 +166,14 @@ Keep normal spoken language natural for the audience, but the bracketed tags wil
             if (isProductDisplayable(productData)) {
               setCurrentProduct(productData);
               setOverlayVisible(true);
-              setProductHistory(prev => [productData, ...prev].slice(0, 50));
+              
+              // Add to product history with session storage
+              const updatedHistory = addProductToHistory(productData);
+              setProductHistory(updatedHistory);
             }
             
-            // Update transcript with cleaned text
-            const cleanedText = cleanSubtitleText(text);
+            // Update transcript with cleaned text (strip tags for display)
+            const cleanedText = stripTags(text);
             setTranscript(cleanedText);
           }
         }
@@ -329,6 +370,10 @@ Keep normal spoken language natural for the audience, but the bracketed tags wil
                     product={currentProduct}
                     visible={overlayVisible}
                     onClose={() => setOverlayVisible(false)}
+                    onNext={handleProductNext}
+                    onCopy={handleProductCopy}
+                    onExport={handleProductExport}
+                    isHost={true}
                   />
                 </VideoStage>
               </div>
@@ -360,41 +405,17 @@ Keep normal spoken language natural for the audience, but the bracketed tags wil
             {/* Sidebar */}
             <div className="lg:col-span-1 space-y-6">
               {/* Product History */}
-              {CONFIG.ENABLE_PRODUCT_HISTORY && (
-                <>
-                  <ProductSidebar
-                    productHistory={productHistory}
-                    onSelectProduct={handleSelectProduct}
-                    onRemoveProduct={handleRemoveProduct}
-                    isVisible={productHistory.length > 0}
-                  />
-                  
-                  {/* Copy/Export Buttons */}
-                  {productHistory.length > 0 && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Export History</h3>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleCopyProductHistory}
-                          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                        >
-                          Copy JSON
-                        </button>
-                        <button
-                          onClick={handleExportProductHistory}
-                          className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                        >
-                          Export File
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Transcript */}
-              <div className="card">
-                <h3 className="text-lg font-semibold mb-3">Live Transcript</h3>
+              <ProductHistory
+                products={productHistory}
+                onCopy={handleProductCopy}
+                onExport={handleProductExport}
+                onClear={handleProductHistoryClear}
+                isHost={true}
+              />
+              
+              {/* Live Transcript */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Live Transcript</h3>
                 <div className="bg-gray-50 rounded-lg p-3 max-h-48 overflow-y-auto">
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">
                     {transcript || 'Start speaking to see transcript...'}

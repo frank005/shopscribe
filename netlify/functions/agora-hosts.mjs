@@ -1,4 +1,4 @@
-// Simple Agora Channel List API - Serverless Function
+// Agora Host List API - Serverless Function
 import fetch from 'node-fetch';
 
 // Environment variables
@@ -15,10 +15,10 @@ function generateAuthHeader() {
   return `Basic ${credentials}`;
 }
 
-// Simple channel list query - just get channels, no complex host logic
-async function queryChannelList() {
+// Query host and audience list for a specific channel
+async function queryHostList(channelName) {
   try {
-    const url = `https://api.agora.io/dev/v1/channel/${AGORA_APP_ID}?page_no=0&page_size=20`;
+    const url = `https://api.agora.io/dev/v1/channel/user/${AGORA_APP_ID}/${channelName}`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -38,22 +38,39 @@ async function queryChannelList() {
       throw new Error(`Agora API returned error: ${data.message || 'Unknown error'}`);
     }
     
-    const channels = data.data?.channels || [];
+    // Check if channel exists
+    if (!data.data.channel_exist) {
+      return {
+        channelName,
+        totalUsers: 0,
+        hostCount: 0,
+        viewerCount: 0,
+        broadcasters: [],
+        audience: []
+      };
+    }
     
-    // Simple response - just return channels as-is
+    const broadcasters = data.data?.broadcasters || [];
+    const audience = data.data?.audience || [];
+    const hostCount = broadcasters.length;
+    const viewerCount = audience.length;
+    const totalUsers = hostCount + viewerCount;
+    
     return {
-      page: 1,
-      pageSize: 20,
-      total: data.data?.total_size || 0,
-      channels: channels
+      channelName,
+      totalUsers,
+      hostCount,
+      viewerCount,
+      broadcasters,
+      audience
     };
   } catch (error) {
-    console.error('Error querying channel list:', error);
+    console.error('Error querying host list:', error);
     throw error;
   }
 }
 
-// Netlify function handler - using newer format like onboardingbot
+// Netlify function handler
 export default async (req, ctx) => {
   try {
     // Only allow GET requests
@@ -72,7 +89,25 @@ export default async (req, ctx) => {
       });
     }
 
-    const result = await queryChannelList();
+    // Get channel name from query parameters
+    const url = new URL(req.url);
+    const channelName = url.searchParams.get('channel');
+    
+    if (!channelName) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing required parameter: channel'
+      }), {
+        status: 400,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type"
+        },
+      });
+    }
+
+    const result = await queryHostList(channelName);
 
     return new Response(JSON.stringify({
       success: true,
@@ -87,7 +122,7 @@ export default async (req, ctx) => {
     });
 
   } catch (error) {
-    console.error('Channel list error:', error);
+    console.error('Host list error:', error);
 
     return new Response(JSON.stringify({
       success: false,

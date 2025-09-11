@@ -1,8 +1,8 @@
 import fetch from 'node-fetch';
 
-export default async function handler(event, context) {
+export default async (req, ctx) => {
   // Only allow POST requests
-  if (event.httpMethod !== 'POST') {
+  if (req.method !== 'POST') {
     return new Response(JSON.stringify({ 
       success: false, 
       error: 'Method not allowed' 
@@ -14,7 +14,7 @@ export default async function handler(event, context) {
 
   try {
     // Get request body
-    const body = await event.json();
+    const body = await req.json();
     const { agentId } = body;
 
     if (!agentId) {

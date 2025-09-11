@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { CONFIG } from '../services/config';
 import agoraService from '../services/agoraService';
-import { parseProductTags, isProductDisplayable } from '../utils/product-sync';
+import { parseProductTags, isProductDisplayable, stripTags } from '../utils/product-sync';
 import { cleanSubtitleText } from '../utils/subtitle-clean';
 import VideoStage from '../components/VideoStage';
 import ProductOverlay from '../components/ProductOverlay';
@@ -75,8 +75,8 @@ export default function AudiencePage() {
               setOverlayVisible(true);
             }
             
-            // Update transcript with cleaned text
-            const cleanedText = cleanSubtitleText(text);
+            // Update transcript with cleaned text (strip tags for display)
+            const cleanedText = stripTags(text);
             setTranscript(cleanedText);
           }
         }
