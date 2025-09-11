@@ -98,11 +98,27 @@ class AgoraService {
 
   // Initialize RTC and Signaling clients
   async initializeClients(appId, uid) {
+    // Prevent multiple initializations - check if already initializing
+    if (this._initializing) {
+      console.log('🔍 Clients already initializing, waiting...');
+      // Wait for the current initialization to complete
+      while (this._initializing) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      return true;
+    }
+
     // Prevent multiple initializations
     if (this.rtcEngine && this.rtmClient) {
       console.log('🔍 Clients already initialized, skipping...');
+      console.log('🔍 RTC Engine exists:', !!this.rtcEngine);
+      console.log('🔍 RTM Client exists:', !!this.rtmClient);
+      console.log('🔍 RTM Client UID:', this.rtmClient?.userId);
       return true;
     }
+
+    // Set initialization flag
+    this._initializing = true;
 
     try {
       // Wait for both SDKs to load
@@ -124,37 +140,68 @@ class AgoraService {
       console.log('✅ RTC client created:', this.rtcEngine);
       console.log('🔍 RTC engine stored in this.rtcEngine:', !!this.rtcEngine);
       
-      // Enable all Agora RTC logs for debugging
-      AgoraRTCInstance.setLogLevel(0); // DEBUG level
-      console.log('🔍 Agora RTC logs enabled at DEBUG level');
+      // Also set log level on the client instance
+      if (this.rtcEngine.setLogLevel) {
+        this.rtcEngine.setLogLevel(0);
+        console.log('🔍 RTC client log level set to DEBUG (0)');
+      }
       
-      // Initialize Signaling Client (RTM) - RTM v2.x style
-      const clientUid = uid || Math.floor(Math.random() * 1000000) + 1000;
+      // Enable ALL Agora RTC logs for debugging - most verbose level
+      AgoraRTCInstance.setLogLevel(0); // 0 = DEBUG (most verbose)
+      AgoraRTCInstance.enableLogUpload(); // Enable log upload for debugging
+      console.log('🔍 Agora RTC logs enabled at DEBUG level (0) - most verbose');
+      console.log('🔍 Agora RTC log upload enabled');
+      
+      // Initialize Signaling Client (RTM) - RTM v2.x style (copied from working onboardingbot)
+      // Generate unique UID to prevent conflicts - use timestamp + random + process ID
+      const clientUid = uid || Date.now() + Math.floor(Math.random() * 10000) + Math.floor(Math.random() * 1000);
       console.log('🔍 Creating RTM client with UID:', clientUid);
-      // console.log('🔍 RTM App ID being used:', appId);
-      // console.log('🔍 RTM App ID length:', appId.length);
-      // console.log('🔍 RTM App ID type:', typeof appId);
-      // console.log('🔍 RTM App ID hex:', Array.from(appId).map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
-      // console.log('🔍 RTM App ID trimmed:', appId.trim());
+      console.log('🔍 RTM UID type:', typeof clientUid);
+      console.log('🔍 RTM UID generation timestamp:', Date.now());
       
       this.rtmClient = new AgoraRTMInstance(appId.trim(), clientUid.toString(), {
         token: null, // No token for testing
         logUpload: false,
-        logLevel: 'INFO'
+        logLevel: 'INFO' // Use INFO level like onboardingbot
       });
       
       console.log('✅ RTM v2.x client created:', this.rtmClient);
+      console.log('🔍 RTM client UID after creation:', this.rtmClient.userId);
+      console.log('🔍 RTM client rtmImpl UID:', this.rtmClient.rtmImpl?.userId);
       console.log('🔍 RTM client methods:', Object.getOwnPropertyNames(this.rtmClient));
       console.log('🔍 RTM client prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.rtmClient)));
       console.log('🔍 RTM client createChannel:', typeof this.rtmClient.createChannel);
-      console.log('🔍 RTM client createStreamChannel:', typeof this.rtmClient.createStreamChannel);
       console.log('🔍 RTM client rtmImpl:', this.rtmClient.rtmImpl);
       console.log('🔍 RTM client rtmImpl methods:', this.rtmClient.rtmImpl ? Object.getOwnPropertyNames(this.rtmClient.rtmImpl) : 'undefined');
       
-      // Login to RTM
+      // Check available RTM methods
+      console.log('🔍 Available RTM client methods:', Object.getOwnPropertyNames(this.rtmClient));
+      console.log('🔍 Available rtmImpl methods:', this.rtmClient.rtmImpl ? Object.getOwnPropertyNames(this.rtmClient.rtmImpl) : 'undefined');
+      
+      // Look for channel-related methods
+      const channelMethods = Object.getOwnPropertyNames(this.rtmClient).filter(method => 
+        method.toLowerCase().includes('channel') || method.toLowerCase().includes('join')
+      );
+      console.log('🔍 Channel-related methods on RTM client:', channelMethods);
+      
+      const rtmImplChannelMethods = this.rtmClient.rtmImpl ? 
+        Object.getOwnPropertyNames(this.rtmClient.rtmImpl).filter(method => 
+          method.toLowerCase().includes('channel') || method.toLowerCase().includes('join')
+        ) : [];
+      console.log('🔍 Channel-related methods on rtmImpl:', rtmImplChannelMethods);
+      
+      // Login to RTM - this is required for product functionality
       console.log('🔍 Logging into RTM...');
-      await this.rtmClient.login({token: null});
-      console.log('✅ RTM login successful');
+      console.log('🔍 RTM client connection state before login:', this.rtmClient.connectionState);
+      
+      // Check if already logged in to prevent login loops
+      if (this.rtmClient.connectionState === 'CONNECTED') {
+        console.log('✅ RTM already logged in, skipping login');
+      } else {
+        await this.rtmClient.login({token: null});
+        console.log('✅ RTM login successful');
+      }
+      console.log('🔍 RTM client connection state after login:', this.rtmClient.connectionState);
       
       // Initialize ConversationalAIAPI using the proper init method
       this.conversationalAI = ConversationalAIAPI.init({
@@ -164,7 +211,6 @@ class AgoraService {
         enableLog: true,
         expectedAgentId: '8888'
       });
-      
       console.log('✅ ConversationalAIAPI initialized successfully');
       
       console.log('✅ RTC, Signaling, and ConversationalAI clients initialized');
@@ -172,6 +218,9 @@ class AgoraService {
     } catch (error) {
       console.error('❌ Error initializing clients:', error);
       return false;
+    } finally {
+      // Clear initialization flag
+      this._initializing = false;
     }
   }
 
@@ -193,7 +242,7 @@ class AgoraService {
       console.log('🏠 Joining as host to channel:', channelName, 'with UID:', uid);
       console.log('🏠 RTC client mode:', this.rtcEngine.mode);
       
-      // Join channel with host role
+      // Join channel first
       await this.rtcEngine.join(appId, channelName, token || null, uid);
       console.log(`✅ Joined RTC channel: ${channelName} with UID: ${uid}`);
       
@@ -232,7 +281,7 @@ class AgoraService {
       console.log('👥 Joining as audience to channel:', channelName, 'with UID:', uid);
       console.log('👥 RTC client mode:', this.rtcEngine.mode);
       
-      // Join channel with audience role
+      // Join channel first
       await this.rtcEngine.join(appId, channelName, token || null, uid);
       console.log(`✅ Joined RTC channel: ${channelName} with UID: ${uid}`);
       
@@ -245,6 +294,46 @@ class AgoraService {
       // Set up RTC event listeners
       console.log('👥 Setting up RTC event listeners...');
       this.setupRTCEventListeners();
+      
+      // Check for existing published tracks (host might have already published)
+      console.log('👥 Checking for existing published tracks...');
+      console.log('👥 RTC engine state:', {
+        connectionState: this.rtcEngine.connectionState,
+        role: this.rtcEngine.role,
+        mode: this.rtcEngine.mode
+      });
+      
+      try {
+        // Get remote users who have already published
+        const remoteUsers = this.rtcEngine.remoteUsers || [];
+        console.log('👥 Found remote users:', remoteUsers.length);
+        console.log('👥 Remote users details:', remoteUsers.map(user => ({
+          uid: user.uid,
+          hasVideo: !!user.videoTrack,
+          hasAudio: !!user.audioTrack,
+          videoTrack: user.videoTrack,
+          audioTrack: user.audioTrack
+        })));
+        
+        for (const user of remoteUsers) {
+          console.log('👥 Processing user:', user.uid, 'hasVideo:', !!user.videoTrack, 'hasAudio:', !!user.audioTrack);
+          
+          if (user.videoTrack) {
+            console.log('👥 Found existing video track for user:', user.uid);
+            console.log('👥 Video track details:', user.videoTrack);
+            const videoResult = await this.subscribeToVideo(user);
+            console.log('👥 Video subscription result:', videoResult);
+          }
+          if (user.audioTrack) {
+            console.log('👥 Found existing audio track for user:', user.uid);
+            console.log('👥 Audio track details:', user.audioTrack);
+            const audioResult = await this.subscribeToAudio(user);
+            console.log('👥 Audio subscription result:', audioResult);
+          }
+        }
+      } catch (error) {
+        console.log('👥 Error checking existing tracks:', error);
+      }
       
       return true;
     } catch (error) {
@@ -261,41 +350,28 @@ class AgoraService {
   // Join Signaling channel
   async joinSignalingChannel(channelName) {
     if (!this.rtmClient) {
-      throw new Error('Signaling client not initialized');
+      throw new Error('RTM client not initialized - this is required for product functionality');
     }
 
     try {
       console.log('📡 Joining RTM channel:', channelName);
       
-      // Try to use createChannel from rtmImpl if available, otherwise use createStreamChannel
-      let channel;
-      if (this.rtmClient.rtmImpl && typeof this.rtmClient.rtmImpl.createChannel === 'function') {
-        console.log('🔍 Using rtmImpl.createChannel');
-        channel = this.rtmClient.rtmImpl.createChannel(channelName);
-      } else if (typeof this.rtmClient.createChannel === 'function') {
-        console.log('🔍 Using rtmClient.createChannel');
-        channel = this.rtmClient.createChannel(channelName);
-      } else {
-        console.log('🔍 Using rtmClient.createStreamChannel');
-        channel = this.rtmClient.createStreamChannel(channelName);
-      }
+      // RTM v2.x doesn't use createChannel - it uses direct channel joining
+      // The ConversationalAIAPI handles the RTM channel joining internally
+      console.log('📡 RTM v2.x - ConversationalAIAPI handles channel joining internally');
+      console.log(`✅ RTM channel ${channelName} will be handled by ConversationalAIAPI`);
       
-      console.log('📡 Created RTM channel object:', channel);
-      await channel.join();
+      // Store the channel name for reference
+      this.rtmChannel = { channelName };
+      console.log('📡 Stored RTM channel name in this.rtmChannel');
       
-      console.log(`✅ Joined Signaling channel: ${channelName}`);
+      // RTM v2.x event listeners are handled by ConversationalAIAPI
+      console.log('📡 RTM event listeners will be handled by ConversationalAIAPI');
       
-      // Store the channel for later use
-      this.rtmChannel = channel;
-      console.log('📡 Stored RTM channel in this.rtmChannel');
-      
-      // Set up Signaling event listeners
-      this.setupSignalingEventListeners(channel);
-      
-      return channel;
+      return this.rtmChannel;
     } catch (error) {
       console.error('❌ Error joining Signaling channel:', error);
-      return null;
+      throw error; // Re-throw to ensure proper error handling
     }
   }
 
@@ -379,15 +455,25 @@ class AgoraService {
 
   // Set up RTC event listeners
   setupRTCEventListeners() {
-    if (!this.rtcEngine) return;
+    if (!this.rtcEngine) {
+      console.log('❌ setupRTCEventListeners: No RTC engine available');
+      return;
+    }
+
+    console.log('🔧 Setting up RTC event listeners on engine:', this.rtcEngine);
+    console.log('🔧 RTC engine connection state:', this.rtcEngine.connectionState);
+    console.log('🔧 RTC engine role:', this.rtcEngine.role);
+    console.log('🔧 RTC engine events:', this.rtcEngine._events ? Object.keys(this.rtcEngine._events) : 'no events');
 
     // Handle user published
     this.rtcEngine.on('user-published', async (user, mediaType) => {
-      console.log('👤 User published:', user.uid, mediaType);
+      console.log('👤 User published event triggered:', user.uid, mediaType);
       console.log('👤 User object:', user);
       console.log('👤 Media type:', mediaType);
       console.log('👤 Current client role:', this.rtcEngine.role);
       console.log('👤 RTC connection state:', this.rtcEngine.connectionState);
+      console.log('👤 User video track:', user.videoTrack);
+      console.log('👤 User audio track:', user.audioTrack);
       
       // Store the remote user for potential control
       this.remoteUser = user;
@@ -395,24 +481,31 @@ class AgoraService {
       if (mediaType === 'audio') {
         console.log('🎵 Subscribing to audio...');
         // Subscribe to audio by default
-        await this.subscribeToAudio(user);
+        const audioResult = await this.subscribeToAudio(user);
+        console.log('🎵 Audio subscription result:', audioResult);
       } else if (mediaType === 'video') {
         console.log('📺 Subscribing to video...');
         console.log('📺 Video track available:', !!user.videoTrack);
         console.log('📺 Video track details:', user.videoTrack);
         // Subscribe to video by default
-        await this.subscribeToVideo(user);
+        const videoResult = await this.subscribeToVideo(user);
+        console.log('📺 Video subscription result:', videoResult);
       }
     });
 
     // Handle user unpublished
-    this.rtcEngine.on('user-unpublished', (user) => {
-      console.log('👤 User unpublished:', user.uid);
-      if (this.remoteAudioTrack && user.uid === this.remoteAudioTrack.getUserId()) {
+    this.rtcEngine.on('user-unpublished', (user, mediaType) => {
+      console.log('👤 User unpublished:', user.uid, mediaType);
+      
+      // Only stop tracks for the specific media type that was unpublished
+      if (mediaType === 'audio' && this.remoteAudioTrack && user.uid === this.remoteAudioTrack.getUserId()) {
+        console.log('🎵 Stopping audio track for user:', user.uid);
         this.remoteAudioTrack.stop();
         this.remoteAudioTrack = null;
       }
-      if (this.remoteVideoTrack && user.uid === this.remoteVideoTrack.getUserId()) {
+      
+      if (mediaType === 'video' && this.remoteVideoTrack && user.uid === this.remoteVideoTrack.getUserId()) {
+        console.log('📺 Stopping video track for user:', user.uid);
         this.remoteVideoTrack.stop();
         this.remoteVideoTrack = null;
       }
@@ -421,7 +514,13 @@ class AgoraService {
 
   // Set up Signaling event listeners
   setupSignalingEventListeners(channel) {
-    if (!channel) return;
+    if (!channel) {
+      console.log('❌ setupSignalingEventListeners: No channel provided');
+      return;
+    }
+
+    console.log('🔧 Setting up RTM event listeners on channel:', channel);
+    console.log('🔧 Channel name:', channel.channelName);
 
     // Handle channel messages
     channel.on('ChannelMessage', (message, memberId) => {
@@ -494,61 +593,90 @@ class AgoraService {
 
   // Subscribe to remote video
   async subscribeToVideo(user) {
-    if (!this.rtcEngine || !user) return false;
+    if (!this.rtcEngine || !user) {
+      console.log('❌ subscribeToVideo: Missing RTC engine or user');
+      return false;
+    }
+    
+    console.log('🎥 subscribeToVideo: Starting subscription for user:', user.uid);
+    console.log('🎥 subscribeToVideo: User video track:', user.videoTrack);
+    console.log('🎥 subscribeToVideo: RTC engine state:', {
+      connectionState: this.rtcEngine.connectionState,
+      role: this.rtcEngine.role,
+      mode: this.rtcEngine.mode
+    });
     
     try {
-      console.log('📺 Subscribing to remote video for user:', user.uid);
-      console.log('📺 RTC engine state before subscribe:', {
-        connectionState: this.rtcEngine.connectionState,
-        role: this.rtcEngine.role,
-        mode: this.rtcEngine.mode
-      });
-      
+      console.log('🎥 subscribeToVideo: Calling rtcEngine.subscribe...');
       await this.rtcEngine.subscribe(user, 'video');
-      console.log('✅ Subscribed to remote video');
+      console.log('✅ subscribeToVideo: Successfully subscribed to remote video');
       
       this.remoteVideoTrack = user.videoTrack;
-      console.log('📺 Remote video track:', this.remoteVideoTrack);
-      console.log('📺 Video track state - isClosed:', this.remoteVideoTrack._isClosed);
-      console.log('📺 Video track state - isDestroyed:', this.remoteVideoTrack._isDestroyed);
-      console.log('📺 Video track mediaStreamTrack:', this.remoteVideoTrack.mediaStreamTrack);
+      console.log('🎥 subscribeToVideo: Set remoteVideoTrack:', this.remoteVideoTrack);
       
-      // Check if the video track is valid before playing
-      if (this.remoteVideoTrack._isClosed || this.remoteVideoTrack._isDestroyed) {
-        console.error('❌ Video track is closed or destroyed, cannot play');
+      // Check if video track is valid
+      if (!this.remoteVideoTrack) {
+        console.error('❌ subscribeToVideo: No video track available');
         return false;
       }
       
-      // Play video in the remote player container
-      console.log('📺 Playing remote video in #remote-player container...');
-      try {
-        // Wait for DOM element to be available
-        let remotePlayerEl = document.getElementById('remote-player');
-        let retries = 0;
-        const maxRetries = 10;
-        
-        while (!remotePlayerEl && retries < maxRetries) {
-          console.log(`📺 Waiting for #remote-player element... (attempt ${retries + 1}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          remotePlayerEl = document.getElementById('remote-player');
-          retries++;
-        }
-        
-        if (!remotePlayerEl) {
-          console.error('❌ #remote-player element not found after retries');
-          return false;
-        }
-        
-        console.log('📺 Found #remote-player element:', remotePlayerEl);
-        await this.remoteVideoTrack.play(remotePlayerEl);
-        console.log('✅ Remote video playing');
-      } catch (playError) {
-        console.error('❌ Error playing remote video:', playError);
+      console.log('🎥 subscribeToVideo: Video track properties:', {
+        trackId: this.remoteVideoTrack._trackId,
+        enabled: this.remoteVideoTrack.enabled,
+        muted: this.remoteVideoTrack.muted,
+        isPlaying: this.remoteVideoTrack.isPlaying,
+        mediaStreamTrack: this.remoteVideoTrack._mediaStreamTrack,
+        hasPlay: typeof this.remoteVideoTrack.play === 'function'
+      });
+      
+      console.log('🎥 subscribeToVideo: Playing video in remote-player...');
+      
+      // Let Agora SDK handle video element creation - don't create our own
+      console.log('🎥 subscribeToVideo: Letting Agora SDK handle video element creation...');
+      
+      // Check if play method exists
+      if (typeof this.remoteVideoTrack.play !== 'function') {
+        console.error('❌ subscribeToVideo: Video track does not have play method');
         return false;
       }
+      
+      // Simply call play on the remote-player container
+      // Agora will create its own video element inside it
+      this.remoteVideoTrack.play('remote-player');
+      console.log('✅ subscribeToVideo: Video playing successfully');
+
+      // Check what Agora created after a short delay
+      setTimeout(() => {
+        const remotePlayerElement = document.getElementById('remote-player');
+        if (remotePlayerElement) {
+          const agoraVideoElement = remotePlayerElement.querySelector('.agora_video_player');
+          const customVideoElement = remotePlayerElement.querySelector('#remote-video');
+          
+          console.log('🎥 subscribeToVideo: Agora video element:', agoraVideoElement);
+          console.log('🎥 subscribeToVideo: Custom video element:', customVideoElement);
+          
+          if (agoraVideoElement) {
+            console.log('🎥 subscribeToVideo: Agora video element details:', {
+              videoWidth: agoraVideoElement.videoWidth,
+              videoHeight: agoraVideoElement.videoHeight,
+              readyState: agoraVideoElement.readyState,
+              paused: agoraVideoElement.paused,
+              currentTime: agoraVideoElement.currentTime,
+              style: agoraVideoElement.style.cssText
+            });
+          }
+        }
+      }, 500);
+      console.log('✅ subscribeToVideo: Video playing in remote-player');
+      
       return true;
     } catch (error) {
-      console.error('❌ Error subscribing to video:', error);
+      console.error('❌ subscribeToVideo: Error subscribing to video:', error);
+      console.error('❌ subscribeToVideo: Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       return false;
     }
   }
@@ -592,9 +720,33 @@ class AgoraService {
     }
 
     try {
+      console.log('🎵 Creating microphone audio track...');
       this.localAudioTrack = await this.agoraRTC.createMicrophoneAudioTrack();
-      await this.rtcEngine.publish(this.localAudioTrack);
-      console.log('✅ Published local audio');
+      console.log('🎵 Microphone audio track created:', this.localAudioTrack);
+      
+      console.log('🎵 Publishing audio track to RTC engine...');
+      console.log('🎵 RTC engine state before publish:', {
+        connectionState: this.rtcEngine.connectionState,
+        role: this.rtcEngine.role,
+        mode: this.rtcEngine.mode
+      });
+      console.log('🎵 Audio track details:', {
+        trackId: this.localAudioTrack._trackId,
+        enabled: this.localAudioTrack.enabled,
+        muted: this.localAudioTrack.muted
+      });
+      
+      console.log('🎵 About to call rtcEngine.publish() with track:', this.localAudioTrack);
+      const publishResult = await this.rtcEngine.publish(this.localAudioTrack);
+      console.log('🎵 rtcEngine.publish() result:', publishResult);
+      
+      console.log('✅ Published local audio track to RTC engine');
+      console.log('🎵 RTC engine state after publish:', {
+        connectionState: this.rtcEngine.connectionState,
+        role: this.rtcEngine.role,
+        mode: this.rtcEngine.mode
+      });
+      
       return true;
     } catch (error) {
       console.error('❌ Error publishing audio:', error);
@@ -673,35 +825,33 @@ class AgoraService {
       this.localVideoTrack = await this.agoraRTC.createCameraVideoTrack();
       console.log('🎥 Camera video track created:', this.localVideoTrack);
       
-      console.log('🎥 Publishing video track...');
-      await this.rtcEngine.publish(this.localVideoTrack);
-      console.log('🎥 Video track published successfully');
+      console.log('🎥 Publishing video track to RTC engine...');
+      console.log('🎥 RTC engine state before publish:', {
+        connectionState: this.rtcEngine.connectionState,
+        role: this.rtcEngine.role,
+        mode: this.rtcEngine.mode
+      });
+      console.log('🎥 Video track details:', {
+        trackId: this.localVideoTrack._trackId,
+        enabled: this.localVideoTrack.enabled,
+        muted: this.localVideoTrack.muted
+      });
       
-      // Play local video in the local player container
-      console.log('🎥 Playing video in #local-player container...');
-      console.log('🎥 Available DOM elements:', document.querySelectorAll('[id*="player"]'));
-      console.log('🎥 Document body:', document.body.innerHTML.substring(0, 500));
+      console.log('🎥 About to call rtcEngine.publish() with track:', this.localVideoTrack);
+      const publishResult = await this.rtcEngine.publish(this.localVideoTrack);
+      console.log('🎥 rtcEngine.publish() result:', publishResult);
       
-      // Wait for DOM element to be available
-      let localPlayerEl = document.getElementById('local-player');
-      let retries = 0;
-      const maxRetries = 20;
+      console.log('✅ Published local video track to RTC engine');
+      console.log('🎥 RTC engine state after publish:', {
+        connectionState: this.rtcEngine.connectionState,
+        role: this.rtcEngine.role,
+        mode: this.rtcEngine.mode
+      });
       
-      while (!localPlayerEl && retries < maxRetries) {
-        console.log(`🎥 Waiting for #local-player element... (attempt ${retries + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 200));
-        localPlayerEl = document.getElementById('local-player');
-        retries++;
-      }
+      console.log('🎥 Playing video in local-player element...');
+      this.localVideoTrack.play('local-player');
+      console.log('✅ Video track playing in local-player');
       
-      if (!localPlayerEl) {
-        console.error('❌ #local-player element not found after retries');
-        return false;
-      }
-      
-      console.log('🎥 Found #local-player element:', localPlayerEl);
-      this.localVideoTrack.play(localPlayerEl);
-      console.log('✅ Published and playing local video');
       return true;
     } catch (error) {
       console.error('❌ Error publishing video:', error);

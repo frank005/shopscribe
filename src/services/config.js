@@ -21,7 +21,7 @@ export const CONFIG = {
   API_BASE_URL: process.env.REACT_APP_API_URL || '',
   
   // Default channel settings
-  DEFAULT_CHANNEL_PREFIX: 'shopscribe_',
+  DEFAULT_CHANNEL_PREFIX: 'ss_',
   MAX_CHANNEL_NAME_LENGTH: 64,
   
   // Product parsing configuration
@@ -86,11 +86,12 @@ export function getProductThemeConfig(theme = 'default') {
 }
 
 
-// Generate a safe channel name
+// Generate a safe channel name (shorter format)
 export function generateChannelName(prefix = '') {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  const baseName = `${CONFIG.DEFAULT_CHANNEL_PREFIX}${prefix}_${timestamp}_${random}`;
+  // Use shorter timestamp (last 6 digits) and shorter random string
+  const shortTimestamp = Date.now().toString().slice(-6);
+  const shortRandom = Math.random().toString(36).substring(2, 5);
+  const baseName = `${CONFIG.DEFAULT_CHANNEL_PREFIX}${prefix}_${shortTimestamp}_${shortRandom}`;
   
   // Ensure it's within length limits and safe for Agora
   return baseName

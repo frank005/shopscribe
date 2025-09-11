@@ -36,7 +36,7 @@ export function saveProductHistory(products) {
 }
 
 /**
- * Add a new product to history
+ * Add a new product to history or merge with existing product
  * @param {Object} product - Product object to add
  * @returns {Array} Updated product history
  */
@@ -47,18 +47,73 @@ export function addProductToHistory(product) {
 
   const history = getProductHistory();
   
-  // Add timestamp to product
-  const productWithTimestamp = {
-    ...product,
-    timestamp: new Date().toISOString(),
-    id: Date.now() + Math.random() // Simple unique ID
-  };
-
-  // Add to beginning of array (most recent first)
-  const updatedHistory = [productWithTimestamp, ...history];
+  // Check if this is an update to an existing product
+  const existingProductIndex = findExistingProductIndex(history, product);
   
-  saveProductHistory(updatedHistory);
-  return updatedHistory;
+  if (existingProductIndex !== -1) {
+    // Merge with existing product
+    const existingProduct = history[existingProductIndex];
+    const mergedProduct = mergeProductUpdate(existingProduct, product);
+    
+    // Update the existing product in place
+    history[existingProductIndex] = {
+      ...mergedProduct,
+      timestamp: new Date().toISOString(),
+      id: existingProduct.id // Keep the same ID
+    };
+    
+    console.log('🔄 Merged product update:', mergedProduct);
+  } else {
+    // Add as new product
+    const productWithTimestamp = {
+      ...product,
+      timestamp: new Date().toISOString(),
+      id: Date.now() + Math.random() // Simple unique ID
+    };
+
+    // Add to beginning of array (most recent first)
+    history.unshift(productWithTimestamp);
+    console.log('➕ Added new product to history:', productWithTimestamp);
+  }
+  
+  saveProductHistory(history);
+  return history;
+}
+
+/**
+ * Find existing product index based on product name or key fields
+ * @param {Array} history - Product history array
+ * @param {Object} newProduct - New product to check against
+ * @returns {number} Index of existing product or -1 if not found
+ */
+function findExistingProductIndex(history, newProduct) {
+  if (!newProduct.product_name) {
+    return -1; // Can't match without a product name
+  }
+  
+  return history.findIndex(existing => {
+    // Match by product name (case insensitive)
+    if (existing.product_name && newProduct.product_name) {
+      return existing.product_name.toLowerCase() === newProduct.product_name.toLowerCase();
+    }
+    return false;
+  });
+}
+
+/**
+ * Merge product updates (new values override existing)
+ * @param {Object} existing - Existing product object
+ * @param {Object} update - New product data
+ * @returns {Object} Merged product object
+ */
+function mergeProductUpdate(existing, update) {
+  return {
+    ...existing,
+    ...update,
+    // Preserve timestamp and ID from existing
+    timestamp: existing.timestamp,
+    id: existing.id
+  };
 }
 
 /**

@@ -1,12 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { CONFIG } from '../services/config';
 import agoraService from '../services/agoraService';
 import { parseProductTags, isProductDisplayable, stripTags } from '../utils/product-sync';
 import { cleanSubtitleText } from '../utils/subtitle-clean';
+import { 
+  getProductHistory, 
+  addProductToHistory 
+} from '../utils/productHistory';
 import VideoStage from '../components/VideoStage';
 import ProductOverlay from '../components/ProductOverlay';
+import ProductHistory from '../components/ProductHistory';
 
 export default function AudiencePage() {
   const navigate = useNavigate();
@@ -17,9 +22,40 @@ export default function AudiencePage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
   const [overlayVisible, setOverlayVisible] = useState(false);
+  const [productHistory, setProductHistory] = useState([]);
   const [transcript, setTranscript] = useState('');
   const [channelName, setChannelName] = useState('');
   const [viewerCount, setViewerCount] = useState(0);
+  const [hostCount, setHostCount] = useState(0);
+  
+  // Store UID to prevent multiple initializations with different UIDs
+  const uidRef = useRef(null);
+
+  // Load product history on component mount
+  useEffect(() => {
+    const history = getProductHistory();
+    setProductHistory(history);
+  }, []);
+
+  // Fetch host/viewer counts
+  const fetchHostInfo = async (channelName) => {
+    try {
+      const response = await fetch(`/.netlify/functions/agora-hosts?channel=${encodeURIComponent(channelName)}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Audience: Host info received:', data);
+        
+        // Handle nested data structure
+        const hostInfo = data.data || data;
+        console.log('📊 Audience: Parsed host info:', hostInfo);
+        
+        setHostCount(hostInfo.hostCount || 0);
+        setViewerCount(hostInfo.viewerCount || 0);
+      }
+    } catch (error) {
+      console.error('❌ Audience: Error fetching host info:', error);
+    }
+  };
 
   // Get channel from URL params
   const channelParam = searchParams.get('channel');
@@ -40,7 +76,12 @@ export default function AudiencePage() {
         throw new Error('Agora App ID not configured');
       }
 
-      const uid = Math.floor(Math.random() * 1000000) + 1000;
+      // Use consistent UID - only generate once
+      if (!uidRef.current) {
+        uidRef.current = Math.floor(Math.random() * 1000000) + 1000;
+      }
+      const uid = uidRef.current;
+      console.log('🎯 Audience: Using UID:', uid);
       
       // Initialize clients
       const initialized = await agoraService.initializeClients(appId, uid);
@@ -49,7 +90,9 @@ export default function AudiencePage() {
       }
 
       // Join RTC channel as audience
+      console.log('🏠 AudiencePage: About to call joinAsAudience with:', { channelName, uid });
       const rtcJoined = await agoraService.joinAsAudience(channelParam, uid);
+      console.log('🏠 AudiencePage: joinAsAudience result:', rtcJoined);
       if (!rtcJoined) {
         throw new Error('Failed to join RTC channel as audience');
       }
@@ -57,28 +100,69 @@ export default function AudiencePage() {
       // Join RTM channel
       await agoraService.joinSignalingChannel(channelParam);
 
-      // Set up transcription listener
+      // CRITICAL: Subscribe to RTM messages like the host does
+      console.log('🎯 Audience: Subscribing to RTM messages like host...');
+      try {
+        await agoraService.conversationalAI.subscribeMessage(channelParam);
+        console.log('🎯 Audience: RTM message subscription complete');
+      } catch (rtmError) {
+        console.error('❌ Audience: RTM subscription failed:', rtmError);
+        console.error('❌ RTM Error details:', {
+          message: rtmError.message,
+          code: rtmError.code,
+          name: rtmError.name
+        });
+        // Don't throw here - continue with RTC functionality
+        console.log('⚠️ Audience: Continuing without RTM subscription');
+      }
+
+      // Set up transcription listener with enhanced debugging
+      console.log('🎯 Audience: Setting up agent response listener...');
       agoraService.onAgentResponse((chatHistory) => {
         console.log('🎯 Audience received agent response:', chatHistory);
+        console.log('🎯 Audience chatHistory length:', chatHistory?.length);
+        console.log('🎯 Audience chatHistory type:', typeof chatHistory);
+        console.log('🎯 Audience chatHistory isArray:', Array.isArray(chatHistory));
+        
         if (chatHistory && chatHistory.length > 0) {
           const latestMessage = chatHistory[chatHistory.length - 1];
-          console.log('🎯 Latest message:', latestMessage);
+          console.log('🎯 Audience latest message:', latestMessage);
+          console.log('🎯 Audience latest message type:', typeof latestMessage);
+          console.log('🎯 Audience latest message keys:', latestMessage ? Object.keys(latestMessage) : 'null');
+          
           if (latestMessage && latestMessage.data) {
             const text = latestMessage.data.text || '';
-            console.log('🎯 Message text:', text);
+            console.log('🎯 Audience message text:', text);
+            console.log('🎯 Audience message text length:', text.length);
             
             // Parse product tags
             const productData = parseProductTags(text);
-            console.log('🎯 Parsed product data:', productData);
+            console.log('🎯 Audience parsed product data:', productData);
+            console.log('🎯 Audience is product displayable?', isProductDisplayable(productData));
+            
             if (isProductDisplayable(productData)) {
+              console.log('🎯 Audience: Setting current product and showing overlay');
               setCurrentProduct(productData);
               setOverlayVisible(true);
+              
+              // Add to product history with session storage
+              const updatedHistory = addProductToHistory(productData);
+              setProductHistory(updatedHistory);
+              console.log('🎯 Audience: Product added to history, new history length:', updatedHistory.length);
+            } else {
+              console.log('🎯 Audience: Product not displayable, skipping overlay');
             }
             
             // Update transcript with cleaned text (strip tags for display)
             const cleanedText = stripTags(text);
             setTranscript(cleanedText);
+            console.log('🎯 Audience: Transcript updated with:', cleanedText);
+          } else {
+            console.log('🎯 Audience: No data in latest message');
+            console.log('🎯 Audience: latestMessage.data:', latestMessage?.data);
           }
+        } else {
+          console.log('🎯 Audience: No chat history or empty array');
         }
       });
 
@@ -86,6 +170,42 @@ export default function AudiencePage() {
       agoraService.conversationalAI.on('debug-log', (message) => {
         console.log('🔍 AI Debug:', message);
       });
+
+      // Add fallback RTM message listener for agent responses
+      console.log('🎯 Audience: Setting up RTM message fallback listener...');
+      console.log('🎯 Audience: agoraService.rtmChannel:', agoraService.rtmChannel);
+      console.log('🎯 Audience: agoraService.rtmChannel type:', typeof agoraService.rtmChannel);
+      
+      if (agoraService.rtmChannel && typeof agoraService.rtmChannel.on === 'function') {
+        console.log('🎯 Audience: RTM channel available, setting up listener');
+        agoraService.rtmChannel.on('ChannelMessage', (message, memberId) => {
+          console.log('🎯 Audience RTM fallback: Received message:', message, 'from:', memberId);
+          if (message && message.text) {
+            console.log('🎯 Audience RTM fallback: Message text:', message.text);
+            
+            // Parse product tags from RTM message
+            const productData = parseProductTags(message.text);
+            console.log('🎯 Audience RTM fallback: Parsed product data:', productData);
+            
+            if (isProductDisplayable(productData)) {
+              console.log('🎯 Audience RTM fallback: Setting product from RTM message');
+              setCurrentProduct(productData);
+              setOverlayVisible(true);
+              
+              // Add to product history
+              const updatedHistory = addProductToHistory(productData);
+              setProductHistory(updatedHistory);
+            }
+            
+            // Update transcript
+            const cleanedText = stripTags(message.text);
+            setTranscript(cleanedText);
+          }
+        });
+      } else {
+        console.log('⚠️ Audience: RTM channel does not have on method, skipping fallback listener');
+        console.log('🔍 RTM channel object:', agoraService.rtmChannel);
+      }
       
       agoraService.conversationalAI.on('agent-error', (agentUserId, error) => {
         console.error('❌ AI Agent Error:', agentUserId, error);
@@ -103,9 +223,18 @@ export default function AudiencePage() {
       setIsConnected(true);
       toast.success('Joined stream successfully!', { id: 'join' });
       
+      // Fetch host/viewer counts
+      await fetchHostInfo(channelParam);
+      
     } catch (error) {
       console.error('Connection error:', error);
-      toast.error(`Failed to join stream: ${error.message}`, { id: 'join' });
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code
+      });
+      toast.error(`Failed to join stream: ${error.message || 'Unknown error'}`, { id: 'join' });
     } finally {
       setIsConnecting(false);
     }
@@ -130,15 +259,16 @@ export default function AudiencePage() {
     };
   }, [isConnected]);
 
-  // Auto-hide overlay after timeout
+  // Auto-hide overlay after timeout (host only - audience keeps overlay visible)
   useEffect(() => {
-    if (overlayVisible && currentProduct) {
-      const timer = setTimeout(() => {
-        setOverlayVisible(false);
-      }, CONFIG.OVERLAY_TIMEOUT_MS);
+    // Don't auto-hide overlay for audience - they should see it until manually closed
+    // if (overlayVisible && currentProduct) {
+    //   const timer = setTimeout(() => {
+    //     setOverlayVisible(false);
+    //   }, CONFIG.OVERLAY_TIMEOUT_MS);
 
-      return () => clearTimeout(timer);
-    }
+    //   return () => clearTimeout(timer);
+    // }
   }, [overlayVisible, currentProduct]);
 
   const handleLeaveStream = () => {
@@ -221,16 +351,23 @@ export default function AudiencePage() {
                 product={currentProduct}
                 visible={overlayVisible}
                 onClose={() => setOverlayVisible(false)}
+                isHost={false}
               />
             </VideoStage>
               </div>
             </div>
 
             {/* Sidebar */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-6">
+              {/* Product History */}
+              <ProductHistory
+                products={productHistory}
+                isHost={false}
+              />
+              
               {/* Live Transcript */}
-              <div className="card">
-                <h3 className="text-lg font-semibold mb-3">Live Transcript</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Live Transcript</h3>
                 <div className="bg-gray-50 rounded-lg p-3 max-h-64 overflow-y-auto">
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">
                     {transcript || 'Waiting for stream to start...'}
@@ -239,12 +376,16 @@ export default function AudiencePage() {
               </div>
 
               {/* Stream Info */}
-              <div className="card mt-4">
-                <h3 className="text-lg font-semibold mb-3">Stream Info</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Stream Info</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Channel:</span>
                     <span className="font-medium">{channelName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Hosts:</span>
+                    <span className="font-medium">{hostCount}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Viewers:</span>

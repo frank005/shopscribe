@@ -28,7 +28,10 @@ export default function ProductOverlay({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
+  console.log('🎨 ProductOverlay render:', { product, visible, isHost });
+  
   if (!product || !visible) {
+    console.log('🎨 ProductOverlay not rendering - no product or not visible');
     return null;
   }
 
@@ -58,7 +61,7 @@ export default function ProductOverlay({
   };
 
   return (
-    <div className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-start p-3 sm:p-4 ${className}`}>
+    <div className={`pointer-events-none absolute inset-x-0 top-0 z-50 flex justify-start p-3 sm:p-4 ${className}`}>
       <AnimatePresence>
         <motion.div
           initial={{ opacity: 0, y: -8 }}

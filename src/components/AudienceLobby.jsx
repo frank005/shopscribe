@@ -73,7 +73,8 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
             console.log(`📊 Step 3 - Final counts for ${channel.channel_name}:`, {
               totalUsers,
               hostCount,
-              viewerCount
+              viewerCount,
+              hostInfoRaw: hostInfo
             });
             
             return {
@@ -86,10 +87,14 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
           })
         );
         
-        console.log('📊 Final processed channels:', channelsWithHosts);
+        // Step 3: Filter out channels with no users (non-existent or empty channels)
+        const activeChannels = channelsWithHosts.filter(channel => channel.totalUsers > 0);
+        console.log(`📊 Step 4 - Filtered ${channelsWithHosts.length} channels to ${activeChannels.length} active channels`);
         
-        setChannels(channelsWithHosts);
-        setTotalChannels(response.total);
+        console.log('📊 Final processed channels:', activeChannels);
+        
+        setChannels(activeChannels);
+        setTotalChannels(activeChannels.length);
         setTotalPages(Math.ceil(response.total / pageSize));
         setCurrentPage(page);
       } else {
@@ -172,7 +177,12 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
 
   // Format host and viewer counts
   const formatHostViewerCount = (hostCount, viewerCount) => {
-    console.log('📊 formatHostViewerCount called with:', { hostCount, viewerCount });
+    console.log('📊 formatHostViewerCount called with:', { 
+      hostCount, 
+      viewerCount, 
+      hostCountType: typeof hostCount, 
+      viewerCountType: typeof viewerCount 
+    });
     if (hostCount === 0 && viewerCount === 0) return 'No activity';
     if (hostCount === 0) return formatViewerCount(viewerCount);
     if (viewerCount === 0) return `${hostCount} host${hostCount > 1 ? 's' : ''}`;

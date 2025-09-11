@@ -87,7 +87,9 @@ export default function HostPage() {
       }
 
       // Join RTC channel as host
+      console.log('🏠 HostPage: About to call joinAsHost with:', { channelName, uid });
       const rtcJoined = await agoraService.joinAsHost(channelName, uid);
+      console.log('🏠 HostPage: joinAsHost result:', rtcJoined);
       if (!rtcJoined) {
         throw new Error('Failed to join RTC channel as host');
       }
@@ -102,13 +104,23 @@ export default function HostPage() {
       // Wait for DOM to render, then publish media
       setTimeout(async () => {
         try {
+          console.log('🎥 Host: Starting media publishing...');
           const mediaPublished = await agoraService.publishMedia();
+          console.log('🎥 Host: Media publishing result:', mediaPublished);
           if (!mediaPublished) {
-            console.error('Failed to publish media');
+            console.error('❌ Host: Failed to publish media');
             toast.error('Failed to start video stream');
+          } else {
+            console.log('✅ Host: Media published successfully');
+            toast.success('Video stream started');
+            
+            // Force a re-render to ensure video displays
+            setTimeout(() => {
+              window.dispatchEvent(new Event('resize'));
+            }, 500);
           }
         } catch (mediaError) {
-          console.error('Media publishing error:', mediaError);
+          console.error('❌ Host: Media publishing error:', mediaError);
           // Handle permission errors specifically
           if (mediaError.message.includes('access denied') || mediaError.message.includes('not found')) {
             toast.error(mediaError.message, { duration: 5000 });
@@ -116,7 +128,7 @@ export default function HostPage() {
             toast.error('Failed to start video stream: ' + mediaError.message);
           }
         }
-      }, 1000); // Wait 1 second for DOM to render
+      }, 1500); // Increased wait time for DOM to render
 
       // Create AI agent
       const agentPrompt = `You are a live shopping assistant. Listen to the host describing a product.
@@ -163,13 +175,17 @@ Keep normal spoken language natural for the audience, but the bracketed tags wil
             // Parse product tags
             const productData = parseProductTags(text);
             console.log('🎯 Parsed product data:', productData);
+            console.log('🎯 Is product displayable?', isProductDisplayable(productData));
             if (isProductDisplayable(productData)) {
+              console.log('🎯 Setting current product and showing overlay');
               setCurrentProduct(productData);
               setOverlayVisible(true);
               
               // Add to product history with session storage
               const updatedHistory = addProductToHistory(productData);
               setProductHistory(updatedHistory);
+            } else {
+              console.log('🎯 Product not displayable, skipping overlay');
             }
             
             // Update transcript with cleaned text (strip tags for display)

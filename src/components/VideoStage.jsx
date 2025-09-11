@@ -38,13 +38,13 @@ export default function VideoStage({
       {(mode === 'remote' || mode === 'both') && (
         <div 
           id="remote-player"
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 w-full h-full z-10"
           {...videoProps}
         />
       )}
       
       {/* Overlay mounting point */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none z-20">
         {children}
       </div>
       

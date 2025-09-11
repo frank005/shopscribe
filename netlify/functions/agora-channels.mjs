@@ -1,5 +1,9 @@
 // Simple Agora Channel List API - Serverless Function
 import fetch from 'node-fetch';
+import { config } from 'dotenv';
+
+// Load environment variables from .env file
+config();
 
 // Environment variables
 const AGORA_APP_ID = process.env.REACT_APP_AGORA_APP_ID;
@@ -39,6 +43,16 @@ async function queryChannelList() {
     }
     
     const channels = data.data?.channels || [];
+    
+    // Debug: Log the channels being returned
+    console.log('📺 Channels returned from Agora API:', channels.length);
+    channels.forEach((channel, index) => {
+      console.log(`📺 Channel ${index + 1}:`, {
+        channel_name: channel.channel_name,
+        user_count: channel.user_count,
+        create_time: channel.create_time
+      });
+    });
     
     // Simple response - just return channels as-is
     return {
