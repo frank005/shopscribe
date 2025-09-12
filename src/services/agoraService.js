@@ -99,6 +99,11 @@ class AgoraService {
 
   // Initialize RTC and Signaling clients
   async initializeClients(appId, uid) {
+    console.log('🔍 InitializeClients: Starting initialization...');
+    console.log('🔍 InitializeClients: RTC Engine exists:', !!this.rtcEngine);
+    console.log('🔍 InitializeClients: RTM Client exists:', !!this.rtmClient);
+    console.log('🔍 InitializeClients: _initializing flag:', this._initializing);
+    
     // Prevent multiple initializations - check if already initializing
     if (this._initializing) {
       console.log('🔍 Clients already initializing, waiting...');
@@ -215,13 +220,16 @@ class AgoraService {
       console.log('✅ ConversationalAIAPI initialized successfully');
       
       console.log('✅ RTC, Signaling, and ConversationalAI clients initialized');
+      console.log('🔍 InitializeClients: Final state - RTC Engine:', !!this.rtcEngine, 'RTM Client:', !!this.rtmClient);
       return true;
     } catch (error) {
       console.error('❌ Error initializing clients:', error);
+      console.error('❌ InitializeClients: Error details:', error.message, error.stack);
       return false;
     } finally {
       // Clear initialization flag
       this._initializing = false;
+      console.log('🔍 InitializeClients: Cleared _initializing flag');
     }
   }
 
@@ -242,6 +250,10 @@ class AgoraService {
       
       console.log('🏠 Joining as host to channel:', channelName, 'with UID:', uid);
       console.log('🏠 RTC client mode:', this.rtcEngine.mode);
+      
+      // Store the channel name for later use (critical for endStream)
+      this.currentChannelName = channelName;
+      console.log('🏠 Stored current channel name:', this.currentChannelName);
       
       // Attach listeners BEFORE joining to catch early events
       console.log('🏠 Setting up RTC event listeners (pre-join)...');
@@ -281,6 +293,10 @@ class AgoraService {
       
       console.log('👥 Joining as audience to channel:', channelName, 'with UID:', uid);
       console.log('👥 RTC client mode:', this.rtcEngine.mode);
+      
+      // Store the channel name for later use
+      this.currentChannelName = channelName;
+      console.log('👥 Stored current channel name:', this.currentChannelName);
       
       // Attach listeners BEFORE joining to catch early events
       console.log('👥 Setting up RTC event listeners (pre-join)...');
@@ -1599,7 +1615,11 @@ class AgoraService {
 
   // Leave RTC channel
   async leaveRTCChannel() {
-    if (!this.rtcEngine) return;
+    console.log('🔄 LeaveRTCChannel: Starting to leave RTC channel...');
+    if (!this.rtcEngine) {
+      console.log('🔄 LeaveRTCChannel: No RTC engine available, skipping');
+      return;
+    }
 
     try {
       // Stop video element monitoring
@@ -1663,24 +1683,28 @@ class AgoraService {
       }
       
       await this.rtcEngine.leave();
-      console.log('✅ Left RTC channel');
+      console.log('✅ LeaveRTCChannel: Successfully left RTC channel');
       return true;
     } catch (error) {
-      console.error('❌ Error leaving RTC channel:', error);
+      console.error('❌ LeaveRTCChannel: Error leaving RTC channel:', error);
       return false;
     }
   }
 
   // Leave Signaling channel
   async leaveSignalingChannel() {
-    if (!this.rtmClient) return;
+    console.log('🔄 LeaveSignalingChannel: Starting to leave RTM channel...');
+    if (!this.rtmClient) {
+      console.log('🔄 LeaveSignalingChannel: No RTM client available, skipping');
+      return;
+    }
 
     try {
       await this.rtmClient.logout();
-      console.log('✅ Left Signaling channel');
+      console.log('✅ LeaveSignalingChannel: Successfully left RTM channel');
       return true;
     } catch (error) {
-      console.error('❌ Error leaving Signaling channel:', error);
+      console.error('❌ LeaveSignalingChannel: Error leaving RTM channel:', error);
       return false;
     }
   }
@@ -1688,8 +1712,15 @@ class AgoraService {
   // Complete disconnect (for audience leaving)
   async disconnect() {
     try {
+      console.log('🔄 Disconnect: Starting disconnect process...');
+      console.log('🔄 Disconnect: RTC Engine exists:', !!this.rtcEngine);
+      console.log('🔄 Disconnect: RTM Client exists:', !!this.rtmClient);
+      
       await this.leaveRTCChannel();
+      console.log('🔄 Disconnect: Left RTC channel');
+      
       await this.leaveSignalingChannel();
+      console.log('🔄 Disconnect: Left RTM channel');
       
       this.rtcEngine = null;
       this.rtmClient = null;
@@ -1711,6 +1742,7 @@ class AgoraService {
   async banAllUsersFromChannel(channelName) {
     try {
       console.log('🚫 Banning all users from channel:', channelName);
+      console.log('🚫 Ban request payload:', { channelName });
       
       const response = await fetch('/.netlify/functions/agora-ban-users', {
         method: 'POST',
@@ -1737,7 +1769,7 @@ class AgoraService {
   }
 
   // End stream (for host - stops agent, leaves channel, then kicks remaining users)
-  async endStream() {
+  async endStream(fallbackChannelName = null) {
     try {
       // First unsubscribe from conversational AI to stop live updates
       if (this.conversationalAI) {
@@ -1753,20 +1785,42 @@ class AgoraService {
       }
       
       // Store channel name before leaving
-      const channelName = this.currentChannelName;
+      let channelName = this.currentChannelName;
+      console.log('🏁 EndStream: Stored channel name for ban:', channelName);
+      console.log('🏁 EndStream: Current channel name property:', this.currentChannelName);
+      
+      // Fallback: if currentChannelName is null, try to get it from the RTC engine or parameter
+      if (!channelName && this.rtcEngine && this.rtcEngine.channelName) {
+        channelName = this.rtcEngine.channelName;
+        console.log('🏁 EndStream: Using fallback channel name from RTC engine:', channelName);
+      }
+      
+      // Final fallback: use the parameter if provided
+      if (!channelName && fallbackChannelName) {
+        channelName = fallbackChannelName;
+        console.log('🏁 EndStream: Using fallback channel name from parameter:', channelName);
+      }
       
       // Leave RTC and RTM channels first (host leaves the channel)
+      console.log('🏁 EndStream: Leaving RTC channel...');
       await this.leaveRTCChannel();
+      console.log('🏁 EndStream: Leaving RTM channel...');
       await this.leaveSignalingChannel();
+      console.log('🏁 EndStream: Successfully left all channels');
       
       // Now ban all remaining users from the channel (after host has left)
       if (channelName) {
+        console.log('🏁 EndStream: Banning users from channel:', channelName);
         try {
           await this.banAllUsersFromChannel(channelName);
-          console.log('✅ All remaining users kicked from channel');
+          console.log('✅ All remaining users kicked from channel:', channelName);
         } catch (banError) {
           console.warn('⚠️ Failed to kick users from channel, but continuing:', banError.message);
+          console.warn('⚠️ Ban error details:', banError);
         }
+      } else {
+        console.error('❌ EndStream: No channel name available for banning users!');
+        console.error('❌ EndStream: this.currentChannelName was:', this.currentChannelName);
       }
       
       // Clean up all references

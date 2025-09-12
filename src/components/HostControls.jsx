@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, EyeOff, SkipForward, Pin, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { Eye, EyeOff, SkipForward, Pin, Mic, MicOff, Video, VideoOff, Settings } from 'lucide-react';
 
 /**
  * HostControls - Control panel for host functionality
@@ -13,6 +13,7 @@ import { Eye, EyeOff, SkipForward, Pin, Mic, MicOff, Video, VideoOff } from 'luc
  * @param {Function} props.onPinProduct - Pin current product to history
  * @param {Function} props.onToggleMicrophone - Toggle microphone
  * @param {Function} props.onToggleVideo - Toggle video
+ * @param {Function} props.onOpenDeviceSettings - Open device settings modal
  * @param {string} props.className - Additional CSS classes
  */
 export default function HostControls({
@@ -25,6 +26,7 @@ export default function HostControls({
   onPinProduct,
   onToggleMicrophone,
   onToggleVideo,
+  onOpenDeviceSettings,
   className = ''
 }) {
   const hasProduct = currentProduct && Object.keys(currentProduct).length > 0;
@@ -59,6 +61,15 @@ export default function HostControls({
           >
             {videoEnabled ? <Video size={16} /> : <VideoOff size={16} />}
             <span className="text-sm">Video</span>
+          </button>
+          
+          <button
+            onClick={onOpenDeviceSettings}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            aria-label="Open device settings"
+          >
+            <Settings size={16} />
+            <span className="text-sm">Devices</span>
           </button>
         </div>
 

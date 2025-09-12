@@ -7,11 +7,13 @@ import { parseProductTags, isProductDisplayable, stripTags } from '../utils/prod
 import { cleanSubtitleText } from '../utils/subtitle-clean';
 import { 
   getProductHistory, 
-  addProductToHistory 
+  addProductToHistory,
+  clearProductHistory
 } from '../utils/productHistory';
 import VideoStage from '../components/VideoStage';
 import ProductOverlay from '../components/ProductOverlay';
 import ProductHistory from '../components/ProductHistory';
+import ChannelBar from '../components/ChannelBar';
 
 export default function AudiencePage() {
   const navigate = useNavigate();
@@ -225,9 +227,11 @@ export default function AudiencePage() {
       // Set up user banned handler
       agoraService.onUserBanned = (connectionState) => {
         console.log('🚫 User was banned from channel:', connectionState);
+        console.log('🚫 Ban handler triggered - setting wasBanned to true');
         setWasBanned(true); // Mark as banned to prevent reconnection attempts
         setShowSessionEndedModal(true);
         setIsConnected(false);
+        toast.error('You have been disconnected from the stream', { id: 'banned' });
       };
 
       setIsConnected(true);
@@ -260,14 +264,15 @@ export default function AudiencePage() {
     }
   }, [channelParam, initializeConnection, navigate, wasBanned]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount only
   useEffect(() => {
     return () => {
+      // Only disconnect when component is actually unmounting (leaving the page)
       if (isConnected) {
         agoraService.disconnect();
       }
     };
-  }, [isConnected]);
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   // Auto-hide overlay after timeout (host only - audience keeps overlay visible)
   useEffect(() => {
@@ -294,6 +299,176 @@ export default function AudiencePage() {
     navigate('/lobby');
   };
 
+  // Format channel name for display (same as browse page)
+  const formatChannelName = (name) => {
+    if (!name) return 'Unknown Channel';
+    
+    // Handle new custom channel name pattern: UserInput_timestamp_random
+    const parts = name.split('_');
+    if (parts.length >= 3) {
+      // Check if it's the new format (has timestamp and random at the end)
+      const lastPart = parts[parts.length - 1];
+      const secondLastPart = parts[parts.length - 2];
+      
+      // If last two parts look like timestamp and random (6 digits + 3 alphanumeric)
+      if (/^\d{6}$/.test(secondLastPart) && /^[a-z0-9]{3}$/.test(lastPart)) {
+        // Remove timestamp and random parts, join the rest with spaces
+        const nameParts = parts.slice(0, -2);
+        return nameParts.join(' ');
+      }
+    }
+    
+    // Handle old ss_host_ pattern
+    if (name.startsWith('ss_host_')) {
+      const parts = name.split('_');
+      if (parts.length >= 3) {
+        const hostId = parts[2];
+        return `Host ${hostId}`;
+      }
+    }
+    
+    // For other patterns, clean up the name
+    return name.replace(/^shopscribe_/, '').replace(/_/g, ' ');
+  };
+
+  // Handle switching to a different stream
+  const handleSwitchStream = async (newChannelName) => {
+    try {
+      console.log('🔄 Switching from', channelName, 'to', newChannelName);
+      
+      // Show loading toast
+      toast.loading('Switching streams...', { id: 'switch' });
+      
+      // Store the current ban handler before disconnecting
+      const currentBanHandler = agoraService.onUserBanned;
+      
+      // Leave current channels (but keep clients alive)
+      if (isConnected) {
+        console.log('🔄 Stream switch: Leaving current channels...');
+        await agoraService.leaveRTCChannel();
+        await agoraService.leaveSignalingChannel();
+        console.log('🔄 Stream switch: Left current channels');
+        setIsConnected(false);
+      }
+      
+      // Clear product history for new stream
+      clearProductHistory();
+      setProductHistory([]);
+      setCurrentProduct(null);
+      setOverlayVisible(false);
+      setTranscript('');
+      
+      // Reset state
+      setIsConnecting(true);
+      setChannelName(newChannelName);
+      setViewerCount(0);
+      setHostCount(0);
+      setWasBanned(false);
+      
+      // Update URL without page reload
+      const newUrl = `/watch?channel=${encodeURIComponent(newChannelName)}`;
+      window.history.pushState({}, '', newUrl);
+      
+      // Initialize connection to new channel
+      const appId = CONFIG.AGORA_APP_ID;
+      if (!appId) {
+        throw new Error('Agora App ID not configured');
+      }
+
+      // Use consistent UID - only generate once
+      if (!uidRef.current) {
+        uidRef.current = Math.floor(Math.random() * 1000000) + 1000;
+      }
+      const uid = uidRef.current;
+      console.log('🎯 Audience: Using UID for new stream:', uid);
+      
+      // Check if clients are available (they should be since we didn't disconnect)
+      console.log('🔄 Stream switch: Checking client availability...');
+      console.log('🔄 Stream switch: agoraService.rtcEngine available:', !!agoraService.rtcEngine);
+      console.log('🔄 Stream switch: agoraService.rtmClient available:', !!agoraService.rtmClient);
+      
+      if (!agoraService.rtcEngine || !agoraService.rtmClient) {
+        throw new Error('Agora clients not available - cannot switch streams');
+      }
+
+      // Join RTC channel as audience
+      const rtcJoined = await agoraService.joinAsAudience(newChannelName, uid);
+      if (!rtcJoined) {
+        throw new Error('Failed to join RTC channel as audience');
+      }
+
+      // Join RTM channel
+      await agoraService.joinSignalingChannel(newChannelName);
+
+      // Subscribe to RTM messages for the new channel
+      try {
+        await agoraService.conversationalAI.subscribeMessage(newChannelName);
+        console.log('🎯 Audience: RTM message subscription complete for new stream');
+      } catch (rtmError) {
+        console.error('❌ Audience: RTM subscription failed for new stream:', rtmError);
+        console.log('⚠️ Audience: Continuing without RTM subscription');
+      }
+
+      // Set up transcription listener
+      agoraService.onAgentResponse((chatHistory) => {
+        if (chatHistory && chatHistory.length > 0) {
+          const latestMessage = chatHistory[chatHistory.length - 1];
+          
+          if (latestMessage && latestMessage.data) {
+            const text = latestMessage.data.text || '';
+            
+            // Parse product tags
+            const productData = parseProductTags(text);
+            
+            if (isProductDisplayable(productData)) {
+              setCurrentProduct(productData);
+              setOverlayVisible(true);
+              
+              // Add to product history with session storage
+              const updatedHistory = addProductToHistory(productData);
+              setProductHistory(updatedHistory);
+            }
+            
+            // Update transcript with cleaned text
+            const cleanedText = stripTags(text);
+            setTranscript(cleanedText);
+          }
+        }
+      });
+
+      // Set up user count tracking
+      agoraService.onMemberJoined = (memberId) => {
+        setViewerCount(prev => prev + 1);
+      };
+
+      agoraService.onMemberLeft = (memberId) => {
+        setViewerCount(prev => Math.max(0, prev - 1));
+      };
+
+      // Restore the ban handler (this is critical for stream ending detection)
+      agoraService.onUserBanned = currentBanHandler || ((connectionState) => {
+        console.log('🚫 User was banned from channel:', connectionState);
+        console.log('🚫 Ban handler triggered (stream switch) - setting wasBanned to true');
+        setWasBanned(true);
+        setShowSessionEndedModal(true);
+        setIsConnected(false);
+        toast.error('You have been disconnected from the stream', { id: 'banned' });
+      });
+
+      setIsConnected(true);
+      setIsConnecting(false);
+      toast.success('Switched to new stream!', { id: 'switch' });
+      
+      // Fetch host/viewer counts for new channel
+      await fetchHostInfo(newChannelName);
+      
+    } catch (error) {
+      console.error('Stream switch error:', error);
+      toast.error(`Failed to switch streams: ${error.message || 'Unknown error'}`, { id: 'switch' });
+      setIsConnecting(false);
+    }
+  };
+
   if (!channelParam) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -315,7 +490,7 @@ export default function AudiencePage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              {channelName.replace(/^shopscribe_/, '').replace(/_/g, ' ')}
+              {formatChannelName(channelName)}
             </h1>
             <div className="flex items-center gap-4 text-sm text-gray-600">
               <span>Channel: {channelName}</span>
@@ -417,6 +592,15 @@ export default function AudiencePage() {
               </div>
             </div>
           </div>
+        )}
+        
+        {/* Channel Bar - Show other live streams */}
+        {isConnected && (
+          <ChannelBar 
+            onJoinChannel={handleSwitchStream}
+            currentChannel={channelName}
+            className="mt-6"
+          />
         )}
       </div>
 

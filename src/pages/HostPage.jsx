@@ -18,6 +18,7 @@ import ProductOverlay from '../components/ProductOverlay';
 import ProductHistory from '../components/ProductHistory';
 import HostControls from '../components/HostControls';
 import ProductSidebar from '../components/ProductSidebar';
+import DeviceSettings from '../components/DeviceSettings';
 
 export default function HostPage() {
   
@@ -34,6 +35,7 @@ export default function HostPage() {
   const [viewerCount, setViewerCount] = useState(0);
   const [hostCount, setHostCount] = useState(0);
   const [customChannelName, setCustomChannelName] = useState('');
+  const [deviceSettingsOpen, setDeviceSettingsOpen] = useState(false);
 
   // Load product history on component mount
   useEffect(() => {
@@ -136,8 +138,10 @@ export default function HostPage() {
 
       // Join RTC channel as host
       console.log('🏠 HostPage: About to call joinAsHost with:', { channelName, uid });
+      console.log('🏠 HostPage: agoraService.currentChannelName before joinAsHost:', agoraService.currentChannelName);
       const rtcJoined = await agoraService.joinAsHost(channelName, uid);
       console.log('🏠 HostPage: joinAsHost result:', rtcJoined);
+      console.log('🏠 HostPage: agoraService.currentChannelName after joinAsHost:', agoraService.currentChannelName);
       if (!rtcJoined) {
         throw new Error('Failed to join RTC channel as host');
       }
@@ -348,10 +352,29 @@ export default function HostPage() {
     }
   };
 
+  // Device settings handlers
+  const handleOpenDeviceSettings = () => {
+    setDeviceSettingsOpen(true);
+  };
+
+  const handleCloseDeviceSettings = () => {
+    setDeviceSettingsOpen(false);
+  };
+
+  const handleDeviceChange = (deviceType, deviceId) => {
+    console.log(`Device changed: ${deviceType} to ${deviceId}`);
+    // The DeviceSettings component handles the actual device switching
+    // This callback can be used for additional UI updates if needed
+  };
+
   const handleEndStream = async () => {
     if (window.confirm('Are you sure you want to end the stream? This will disconnect all viewers.')) {
       try {
-        await agoraService.endStream();
+        console.log('🏁 HostPage: About to end stream');
+        console.log('🏁 HostPage: agoraService.currentChannelName before endStream:', agoraService.currentChannelName);
+        console.log('🏁 HostPage: channelName state before endStream:', channelName);
+        await agoraService.endStream(channelName);
+        console.log('🏁 HostPage: endStream completed');
         setIsConnected(false);
         setChannelName('');
         setCurrentProduct(null);
@@ -365,6 +388,7 @@ export default function HostPage() {
         setViewerCount(0);
         toast.success('Stream ended successfully');
       } catch (error) {
+        console.error('🏁 HostPage: Error ending stream:', error);
         toast.error('Failed to end stream');
       }
     }
@@ -472,6 +496,7 @@ export default function HostPage() {
                 onPinProduct={handlePinProduct}
                 onToggleMicrophone={handleToggleMicrophone}
                 onToggleVideo={handleToggleVideo}
+                onOpenDeviceSettings={handleOpenDeviceSettings}
               />
               
               {/* Controls Help */}
@@ -532,6 +557,13 @@ export default function HostPage() {
           </div>
         )}
       </div>
+      
+      {/* Device Settings Modal */}
+      <DeviceSettings
+        isOpen={deviceSettingsOpen}
+        onClose={handleCloseDeviceSettings}
+        onDeviceChange={handleDeviceChange}
+      />
     </div>
   );
 }

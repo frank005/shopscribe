@@ -34,10 +34,20 @@ export default async (request, context) => {
     }
 
     console.log('🚫 Banning all users from channel:', channelName);
+    console.log('🚫 Ban request details:', {
+      channelName,
+      timestamp: new Date().toISOString()
+    });
 
-    const appId = process.env.AGORA_APP_ID;
+    const appId = process.env.REACT_APP_AGORA_APP_ID;
     const customerId = process.env.AGORA_CUSTOMER_ID;
     const customerSecret = process.env.AGORA_CUSTOMER_SECRET;
+
+    // Debug environment variables
+    console.log('🔧 Environment variables loaded:');
+    console.log('🔧 AGORA_APP_ID:', appId ? `${appId.substring(0, 8)}...` : 'MISSING');
+    console.log('🔧 AGORA_CUSTOMER_ID:', customerId ? `${customerId.substring(0, 8)}...` : 'MISSING');
+    console.log('🔧 AGORA_CUSTOMER_SECRET:', customerSecret ? `${customerSecret.substring(0, 8)}...` : 'MISSING');
 
     if (!appId || !customerId || !customerSecret) {
       console.error('❌ Missing Agora credentials');
@@ -61,7 +71,7 @@ export default async (request, context) => {
           cname: channelName,
           uid: null,
           ip: "",
-          time_in_seconds: 10, // 10 seconds - just enough to kick users out
+          time_in_seconds: 60, // 60 seconds - ensure users are properly kicked
           privileges: ["join_channel"]
         })
     });
@@ -77,6 +87,8 @@ export default async (request, context) => {
 
     const banData = await banResponse.json();
     console.log('✅ Users banned from channel:', banData);
+    console.log('✅ Ban response status:', banResponse.status);
+    console.log('✅ Ban response headers:', Object.fromEntries(banResponse.headers.entries()));
 
     return new Response(JSON.stringify({ 
       success: true, 
