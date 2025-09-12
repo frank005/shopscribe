@@ -176,6 +176,9 @@ Output:
           vendor: "ares",
           language: "en-US"
         },
+        turn_detection: {
+          interrupt_mode: "append"
+        },
         parameters: {
           audio_scenario: "chorus",
           data_channel: "rtm", // Required: specifies RTM as data channel
