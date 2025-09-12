@@ -54,7 +54,7 @@ AGORA_CUSTOMER_SECRET=your_agora_customer_secret_here
 
 # OpenAI Configuration (Optional)
 OPENAI_API_KEY=your_openai_key
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-4o
 
 # TTS Configuration (Optional)
 TTS_VENDOR=microsoft

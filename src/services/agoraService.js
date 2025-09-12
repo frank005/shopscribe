@@ -94,6 +94,7 @@ class AgoraService {
     this.remoteAudioTrack = null;
     this.remoteVideoTrack = null;
     this.conversationalAI = new ConversationalAIAPI();
+    this.videoElementMonitor = null;
   }
 
   // Initialize RTC and Signaling clients
@@ -135,8 +136,8 @@ class AgoraService {
       this.agoraRTC = AgoraRTCInstance;
       this.agoraRTM = AgoraRTMInstance;
       
-      // Initialize RTC Engine - using live mode for host/audience roles
-      this.rtcEngine = AgoraRTCInstance.createClient({ mode: 'live', codec: 'vp8' });
+      // Initialize RTC Engine - using live mode for host/audience roles with VP9 codec
+      this.rtcEngine = AgoraRTCInstance.createClient({ mode: 'live', codec: 'vp9' });
       console.log('✅ RTC client created:', this.rtcEngine);
       console.log('🔍 RTC engine stored in this.rtcEngine:', !!this.rtcEngine);
       
@@ -242,6 +243,10 @@ class AgoraService {
       console.log('🏠 Joining as host to channel:', channelName, 'with UID:', uid);
       console.log('🏠 RTC client mode:', this.rtcEngine.mode);
       
+      // Attach listeners BEFORE joining to catch early events
+      console.log('🏠 Setting up RTC event listeners (pre-join)...');
+      this.setupRTCEventListeners();
+      
       // Join channel first
       await this.rtcEngine.join(appId, channelName, token || null, uid);
       console.log(`✅ Joined RTC channel: ${channelName} with UID: ${uid}`);
@@ -251,10 +256,6 @@ class AgoraService {
       await this.rtcEngine.setClientRole('host');
       console.log('✅ Set client role to host');
       console.log('🏠 Current client role:', this.rtcEngine.role);
-      
-      // Set up RTC event listeners
-      console.log('🏠 Setting up RTC event listeners...');
-      this.setupRTCEventListeners();
       
       return true;
     } catch (error) {
@@ -281,6 +282,10 @@ class AgoraService {
       console.log('👥 Joining as audience to channel:', channelName, 'with UID:', uid);
       console.log('👥 RTC client mode:', this.rtcEngine.mode);
       
+      // Attach listeners BEFORE joining to catch early events
+      console.log('👥 Setting up RTC event listeners (pre-join)...');
+      this.setupRTCEventListeners();
+      
       // Join channel first
       await this.rtcEngine.join(appId, channelName, token || null, uid);
       console.log(`✅ Joined RTC channel: ${channelName} with UID: ${uid}`);
@@ -290,10 +295,6 @@ class AgoraService {
       await this.rtcEngine.setClientRole('audience');
       console.log('✅ Set client role to audience');
       console.log('👥 Current client role:', this.rtcEngine.role);
-      
-      // Set up RTC event listeners
-      console.log('👥 Setting up RTC event listeners...');
-      this.setupRTCEventListeners();
       
       // Check for existing published tracks (host might have already published)
       console.log('👥 Checking for existing published tracks...');
@@ -453,6 +454,144 @@ class AgoraService {
     }
   }
 
+  // Start video element monitoring
+  startVideoElementMonitoring() {
+    if (this.videoElementMonitor) {
+      clearInterval(this.videoElementMonitor);
+    }
+    
+    console.log('🔍 Starting video element monitoring...');
+    this.videoElementMonitor = setInterval(() => {
+      this.checkVideoElements();
+    }, 2000); // Check every 2 seconds
+  }
+  
+  // Stop video element monitoring
+  stopVideoElementMonitoring() {
+    if (this.videoElementMonitor) {
+      clearInterval(this.videoElementMonitor);
+      this.videoElementMonitor = null;
+      console.log('🔍 Stopped video element monitoring');
+    }
+  }
+  
+  // Check video elements status
+  checkVideoElements() {
+    const remotePlayerElement = document.getElementById('remote-player');
+    const localPlayerElement = document.getElementById('local-player');
+    
+    if (remotePlayerElement) {
+      const remoteVideos = remotePlayerElement.querySelectorAll('video');
+      const remoteCanvases = remotePlayerElement.querySelectorAll('canvas');
+      const remoteAgoraElements = remotePlayerElement.querySelectorAll('.agora_video_player');
+      
+      if (remoteVideos.length > 0 || remoteCanvases.length > 0 || remoteAgoraElements.length > 0) {
+        console.log('🔍 Remote video elements found:', {
+          videos: remoteVideos.length,
+          canvases: remoteCanvases.length,
+          agoraElements: remoteAgoraElements.length,
+          total: remotePlayerElement.children.length
+        });
+      } else if (this.remoteVideoTrack && this.remoteVideoTrack.isPlaying) {
+        console.warn('⚠️ Remote video track is playing but no video elements found in DOM');
+      }
+    }
+    
+    if (localPlayerElement) {
+      const localVideos = localPlayerElement.querySelectorAll('video');
+      const localCanvases = localPlayerElement.querySelectorAll('canvas');
+      const localAgoraElements = localPlayerElement.querySelectorAll('.agora_video_player');
+      
+      if (localVideos.length > 0 || localCanvases.length > 0 || localAgoraElements.length > 0) {
+        console.log('🔍 Local video elements found:', {
+          videos: localVideos.length,
+          canvases: localCanvases.length,
+          agoraElements: localAgoraElements.length,
+          total: localPlayerElement.children.length
+        });
+      } else if (this.localVideoTrack && this.localVideoTrack.isPlaying) {
+        console.warn('⚠️ Local video track is playing but no video elements found in DOM');
+      }
+    }
+  }
+
+  // Helper: Ensure unique container exists for a UID
+  ensureContainer(id) {
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      Object.assign(el.style, { 
+        position: 'absolute', 
+        inset: '0',
+        width: '100%',
+        height: '100%'
+      });
+      
+      // Try to append to video-stage first, then fallback to remote-player
+      const videoStage = document.getElementById('video-stage');
+      const remotePlayer = document.getElementById('remote-player');
+      const parent = videoStage || remotePlayer;
+      
+      if (parent) {
+        parent.appendChild(el);
+        console.log(`✅ Created container: ${id} in ${parent.id}`);
+      } else {
+        console.error(`❌ No parent container found for: ${id}`);
+      }
+    }
+    return el;
+  }
+
+  // Helper: Remove container by ID
+  removeContainer(id) {
+    const el = document.getElementById(id);
+    if (el && el.parentNode) {
+      el.parentNode.removeChild(el);
+      console.log(`✅ Removed container: ${id}`);
+    }
+  }
+
+  // Helper: Play video when DOM is ready and sized
+  playWhenReady(videoTrack, elementId) {
+    const tryPlay = () => {
+      const el = document.getElementById(elementId);
+      if (!el) {
+        console.log(`⏳ Container not mounted yet: ${elementId}`);
+        return false;
+      }
+      
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) {
+        console.log(`⏳ Container has zero size: ${elementId} (${rect.width}x${rect.height})`);
+        return false;
+      }
+      
+      try {
+        videoTrack.play(el);
+        console.log(`✅ [AUD] playing ${elementId} (${rect.width}x${rect.height})`);
+        return true;
+      } catch (error) {
+        console.error(`❌ Error playing video in ${elementId}:`, error);
+        return false;
+      }
+    };
+    
+    if (tryPlay()) return;
+    
+    let tries = 0;
+    const maxTries = 30; // ~3 seconds
+    const interval = setInterval(() => {
+      tries++;
+      if (tryPlay() || tries >= maxTries) {
+        clearInterval(interval);
+        if (tries >= maxTries) {
+          console.error(`❌ Failed to play video in ${elementId} after ${maxTries} attempts`);
+        }
+      }
+    }, 100);
+  }
+
   // Set up RTC event listeners
   setupRTCEventListeners() {
     if (!this.rtcEngine) {
@@ -464,10 +603,18 @@ class AgoraService {
     console.log('🔧 RTC engine connection state:', this.rtcEngine.connectionState);
     console.log('🔧 RTC engine role:', this.rtcEngine.role);
     console.log('🔧 RTC engine events:', this.rtcEngine._events ? Object.keys(this.rtcEngine._events) : 'no events');
+    
+    // Start video element monitoring
+    this.startVideoElementMonitoring();
+
+    // Handle connection state changes
+    this.rtcEngine.on('connection-state-change', (cur, prev, reason) => {
+      console.log('🔗 [RTC] state change', { prev, cur, reason });
+    });
 
     // Handle user published
     this.rtcEngine.on('user-published', async (user, mediaType) => {
-      console.log('👤 User published event triggered:', user.uid, mediaType);
+      console.log('👤 [AUD] user-published', user.uid, mediaType);
       console.log('👤 User object:', user);
       console.log('👤 Media type:', mediaType);
       console.log('👤 Current client role:', this.rtcEngine.role);
@@ -480,22 +627,29 @@ class AgoraService {
       
       if (mediaType === 'audio') {
         console.log('🎵 Subscribing to audio...');
-        // Subscribe to audio by default
-        const audioResult = await this.subscribeToAudio(user);
-        console.log('🎵 Audio subscription result:', audioResult);
+        await this.rtcEngine.subscribe(user, 'audio');
+        console.log('🎵 [AUD] subscribed', user.uid, 'audio');
+        
+        if (user.audioTrack) {
+          user.audioTrack.play();
+          console.log('🎵 Audio track playing');
+        }
       } else if (mediaType === 'video') {
         console.log('📺 Subscribing to video...');
-        console.log('📺 Video track available:', !!user.videoTrack);
-        console.log('📺 Video track details:', user.videoTrack);
-        // Subscribe to video by default
-        const videoResult = await this.subscribeToVideo(user);
-        console.log('📺 Video subscription result:', videoResult);
+        await this.rtcEngine.subscribe(user, 'video');
+        console.log('📺 [AUD] subscribed', user.uid, 'video');
+        
+        if (user.videoTrack) {
+          const elId = `remote-player-${user.uid}`;
+          this.ensureContainer(elId);
+          this.playWhenReady(user.videoTrack, elId);
+        }
       }
     });
 
     // Handle user unpublished
     this.rtcEngine.on('user-unpublished', (user, mediaType) => {
-      console.log('👤 User unpublished:', user.uid, mediaType);
+      console.log('👤 [AUD] user-unpublished', user.uid, mediaType);
       
       // Only stop tracks for the specific media type that was unpublished
       if (mediaType === 'audio' && this.remoteAudioTrack && user.uid === this.remoteAudioTrack.getUserId()) {
@@ -508,6 +662,10 @@ class AgoraService {
         console.log('📺 Stopping video track for user:', user.uid);
         this.remoteVideoTrack.stop();
         this.remoteVideoTrack = null;
+        
+        // Clean up the unique container
+        const elId = `remote-player-${user.uid}`;
+        this.removeContainer(elId);
       }
     });
   }
@@ -621,18 +779,33 @@ class AgoraService {
       }
       
       console.log('🎥 subscribeToVideo: Video track properties:', {
-        trackId: this.remoteVideoTrack._trackId,
+        internalTrackId: this.remoteVideoTrack._trackId,
         enabled: this.remoteVideoTrack.enabled,
         muted: this.remoteVideoTrack.muted,
         isPlaying: this.remoteVideoTrack.isPlaying,
         mediaStreamTrack: this.remoteVideoTrack._mediaStreamTrack,
-        hasPlay: typeof this.remoteVideoTrack.play === 'function'
+        hasPlay: typeof this.remoteVideoTrack.play === 'function',
+        trackType: this.remoteVideoTrack.trackType,
+        trackId: this.remoteVideoTrack.trackId,
+        uid: this.remoteVideoTrack.uid,
+        userId: this.remoteVideoTrack.userId
       });
       
-      console.log('🎥 subscribeToVideo: Playing video in remote-player...');
+      // Check if the video track has a media stream
+      if (this.remoteVideoTrack._mediaStreamTrack) {
+        console.log('🎥 subscribeToVideo: Media stream track details:', {
+          id: this.remoteVideoTrack._mediaStreamTrack.id,
+          kind: this.remoteVideoTrack._mediaStreamTrack.kind,
+          label: this.remoteVideoTrack._mediaStreamTrack.label,
+          enabled: this.remoteVideoTrack._mediaStreamTrack.enabled,
+          muted: this.remoteVideoTrack._mediaStreamTrack.muted,
+          readyState: this.remoteVideoTrack._mediaStreamTrack.readyState
+        });
+      } else {
+        console.warn('⚠️ subscribeToVideo: No media stream track found');
+      }
       
-      // Let Agora SDK handle video element creation - don't create our own
-      console.log('🎥 subscribeToVideo: Letting Agora SDK handle video element creation...');
+      console.log('🎥 subscribeToVideo: Playing video in remote-player...');
       
       // Check if play method exists
       if (typeof this.remoteVideoTrack.play !== 'function') {
@@ -640,36 +813,132 @@ class AgoraService {
         return false;
       }
       
-      // Simply call play on the remote-player container
-      // Agora will create its own video element inside it
-      this.remoteVideoTrack.play('remote-player');
-      console.log('✅ subscribeToVideo: Video playing successfully');
-
-      // Check what Agora created after a short delay
-      setTimeout(() => {
-        const remotePlayerElement = document.getElementById('remote-player');
-        if (remotePlayerElement) {
-          const agoraVideoElement = remotePlayerElement.querySelector('.agora_video_player');
-          const customVideoElement = remotePlayerElement.querySelector('#remote-video');
+      // Enhanced video element creation with fallback
+      const ensureVideoElement = async (attempt = 1, maxAttempts = 10) => {
+        try {
+          console.log(`🎥 subscribeToVideo: Video element creation attempt ${attempt}/${maxAttempts}`);
           
-          console.log('🎥 subscribeToVideo: Agora video element:', agoraVideoElement);
-          console.log('🎥 subscribeToVideo: Custom video element:', customVideoElement);
+          // Check if target element exists
+          const remotePlayerElement = document.getElementById('remote-player');
+          if (!remotePlayerElement) {
+            console.error(`❌ subscribeToVideo: Remote player element not found on attempt ${attempt}`);
+            if (attempt < maxAttempts) {
+              console.log(`🔄 subscribeToVideo: Retrying in 300ms...`);
+              setTimeout(() => ensureVideoElement(attempt + 1, maxAttempts), 300);
+              return false;
+            } else {
+              console.error('❌ subscribeToVideo: Max retry attempts reached, remote player element still not found');
+              return false;
+            }
+          }
           
-          if (agoraVideoElement) {
-            console.log('🎥 subscribeToVideo: Agora video element details:', {
-              videoWidth: agoraVideoElement.videoWidth,
-              videoHeight: agoraVideoElement.videoHeight,
-              readyState: agoraVideoElement.readyState,
-              paused: agoraVideoElement.paused,
-              currentTime: agoraVideoElement.currentTime,
-              style: agoraVideoElement.style.cssText
+          // Clear any existing content to ensure clean state
+          if (attempt === 1) {
+            remotePlayerElement.innerHTML = '';
+            console.log('🎥 subscribeToVideo: Cleared remote player element for clean start');
+          }
+          
+          // Try to play the video
+          console.log('🎥 subscribeToVideo: Calling play on video track...');
+          this.remoteVideoTrack.play('remote-player');
+          console.log(`✅ subscribeToVideo: Video play call successful on attempt ${attempt}`);
+          
+          // Wait for video element to be created
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check for video element creation
+          const videoElement = remotePlayerElement.querySelector('video') || 
+                             remotePlayerElement.querySelector('canvas') ||
+                             remotePlayerElement.querySelector('.agora_video_player') ||
+                             remotePlayerElement.firstElementChild;
+          
+          if (videoElement) {
+            console.log(`✅ subscribeToVideo: Video element found after attempt ${attempt}:`, {
+              tagName: videoElement.tagName,
+              className: videoElement.className,
+              id: videoElement.id,
+              videoWidth: videoElement.videoWidth || 'N/A',
+              videoHeight: videoElement.videoHeight || 'N/A',
+              readyState: videoElement.readyState || 'N/A',
+              paused: videoElement.paused || 'N/A',
+              currentTime: videoElement.currentTime || 'N/A',
+              style: videoElement.style.cssText,
+              src: videoElement.src || 'N/A'
             });
+            
+            // Ensure video element is properly styled
+            if (videoElement.tagName === 'VIDEO') {
+              videoElement.style.width = '100%';
+              videoElement.style.height = '100%';
+              videoElement.style.objectFit = 'cover';
+              console.log('🎥 subscribeToVideo: Applied video element styling');
+            }
+            
+            return true;
+          } else {
+            console.warn(`⚠️ subscribeToVideo: No video element found after attempt ${attempt}`);
+            console.log(`🎥 subscribeToVideo: Remote player element children:`, remotePlayerElement.children.length);
+            console.log(`🎥 subscribeToVideo: Remote player element innerHTML:`, remotePlayerElement.innerHTML);
+            
+            if (attempt < maxAttempts) {
+              console.log(`🔄 subscribeToVideo: Retrying video element creation...`);
+              setTimeout(() => ensureVideoElement(attempt + 1, maxAttempts), 500);
+              return false;
+            } else {
+              console.error('❌ subscribeToVideo: Max retry attempts reached, video element creation failed');
+              
+              // Fallback: Create video element manually
+              console.log('🎥 subscribeToVideo: Attempting manual video element creation as fallback...');
+              try {
+                const fallbackVideo = document.createElement('video');
+                fallbackVideo.id = 'fallback-remote-video';
+                fallbackVideo.style.width = '100%';
+                fallbackVideo.style.height = '100%';
+                fallbackVideo.style.objectFit = 'cover';
+                fallbackVideo.autoplay = true;
+                fallbackVideo.muted = true;
+                fallbackVideo.playsInline = true;
+                
+                // Try to attach the media stream directly
+                if (this.remoteVideoTrack._mediaStreamTrack) {
+                  fallbackVideo.srcObject = new MediaStream([this.remoteVideoTrack._mediaStreamTrack]);
+                  remotePlayerElement.appendChild(fallbackVideo);
+                  console.log('✅ subscribeToVideo: Fallback video element created and attached');
+                  return true;
+                } else {
+                  console.error('❌ subscribeToVideo: No media stream track available for fallback');
+                  return false;
+                }
+              } catch (fallbackError) {
+                console.error('❌ subscribeToVideo: Fallback video element creation failed:', fallbackError);
+                return false;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`❌ subscribeToVideo: Video element creation attempt ${attempt} failed:`, error);
+          if (attempt < maxAttempts) {
+            console.log(`🔄 subscribeToVideo: Retrying in 500ms...`);
+            setTimeout(() => ensureVideoElement(attempt + 1, maxAttempts), 500);
+            return false;
+          } else {
+            console.error('❌ subscribeToVideo: Max retry attempts reached, all video element creation attempts failed');
+            return false;
           }
         }
-      }, 500);
-      console.log('✅ subscribeToVideo: Video playing in remote-player');
+      };
       
-      return true;
+      // Start the enhanced video element creation process
+      const videoElementCreated = await ensureVideoElement();
+      
+      if (videoElementCreated) {
+        console.log('✅ subscribeToVideo: Video element successfully created and playing');
+        return true;
+      } else {
+        console.error('❌ subscribeToVideo: Failed to create video element after all attempts');
+        return false;
+      }
+      
     } catch (error) {
       console.error('❌ subscribeToVideo: Error subscribing to video:', error);
       console.error('❌ subscribeToVideo: Error details:', {
@@ -841,18 +1110,112 @@ class AgoraService {
       const publishResult = await this.rtcEngine.publish(this.localVideoTrack);
       console.log('🎥 rtcEngine.publish() result:', publishResult);
       
-      console.log('✅ Published local video track to RTC engine');
+      console.log('✅ [HOST] published audio+video, codec=vp9');
       console.log('🎥 RTC engine state after publish:', {
         connectionState: this.rtcEngine.connectionState,
         role: this.rtcEngine.role,
         mode: this.rtcEngine.mode
       });
       
-      console.log('🎥 Playing video in local-player element...');
-      this.localVideoTrack.play('local-player');
-      console.log('✅ Video track playing in local-player');
+      // Enhanced local video element creation with retry mechanism
+      const ensureLocalVideoElement = async (attempt = 1, maxAttempts = 5) => {
+        try {
+          console.log(`🎥 publishVideo: Local video element creation attempt ${attempt}/${maxAttempts}`);
+          
+          // Check if target element exists
+          const localPlayerElement = document.getElementById('local-player');
+          if (!localPlayerElement) {
+            console.error(`❌ publishVideo: Local player element not found on attempt ${attempt}`);
+            if (attempt < maxAttempts) {
+              console.log(`🔄 publishVideo: Retrying in 300ms...`);
+              setTimeout(() => ensureLocalVideoElement(attempt + 1, maxAttempts), 300);
+              return false;
+            } else {
+              console.error('❌ publishVideo: Max retry attempts reached, local player element still not found');
+              return false;
+            }
+          }
+          
+          // Clear any existing content to ensure clean state
+          if (attempt === 1) {
+            localPlayerElement.innerHTML = '';
+            console.log('🎥 publishVideo: Cleared local player element for clean start');
+          }
+          
+          console.log('🎥 publishVideo: Playing video in local-player element...');
+          this.localVideoTrack.play('local-player');
+          console.log(`✅ publishVideo: Video play call successful on attempt ${attempt}`);
+          
+          // Wait for video element to be created
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check for video element creation
+          const videoElement = localPlayerElement.querySelector('video') || 
+                             localPlayerElement.querySelector('canvas') ||
+                             localPlayerElement.querySelector('.agora_video_player') ||
+                             localPlayerElement.firstElementChild;
+          
+          if (videoElement) {
+            console.log(`✅ publishVideo: Local video element found after attempt ${attempt}:`, {
+              tagName: videoElement.tagName,
+              className: videoElement.className,
+              id: videoElement.id,
+              videoWidth: videoElement.videoWidth || 'N/A',
+              videoHeight: videoElement.videoHeight || 'N/A',
+              readyState: videoElement.readyState || 'N/A',
+              paused: videoElement.paused || 'N/A',
+              currentTime: videoElement.currentTime || 'N/A',
+              style: videoElement.style.cssText,
+              src: videoElement.src || 'N/A'
+            });
+            
+            // Ensure video element is properly styled
+            if (videoElement.tagName === 'VIDEO') {
+              videoElement.style.width = '100%';
+              videoElement.style.height = '100%';
+              videoElement.style.objectFit = 'cover';
+              console.log('🎥 publishVideo: Applied local video element styling');
+            }
+            
+            return true;
+          } else {
+            console.warn(`⚠️ publishVideo: No local video element found after attempt ${attempt}`);
+            console.log(`🎥 publishVideo: Local player element children:`, localPlayerElement.children.length);
+            console.log(`🎥 publishVideo: Local player element innerHTML:`, localPlayerElement.innerHTML);
+            
+            if (attempt < maxAttempts) {
+              console.log(`🔄 publishVideo: Retrying local video element creation...`);
+              setTimeout(() => ensureLocalVideoElement(attempt + 1, maxAttempts), 500);
+              return false;
+            } else {
+              console.error('❌ publishVideo: Max retry attempts reached, local video element creation failed');
+              return false;
+            }
+          }
+        } catch (error) {
+          console.error(`❌ publishVideo: Local video element creation attempt ${attempt} failed:`, error);
+          if (attempt < maxAttempts) {
+            console.log(`🔄 publishVideo: Retrying in 500ms...`);
+            setTimeout(() => ensureLocalVideoElement(attempt + 1, maxAttempts), 500);
+            return false;
+          } else {
+            console.error('❌ publishVideo: Max retry attempts reached, all local video element creation attempts failed');
+            return false;
+          }
+        }
+      };
       
-      return true;
+      // Start the enhanced local video element creation process
+      const localVideoElementCreated = await ensureLocalVideoElement();
+      
+      if (localVideoElementCreated) {
+        console.log('✅ publishVideo: Local video element successfully created and playing');
+        return true;
+      } else {
+        console.error('❌ publishVideo: Failed to create local video element after all attempts');
+        return false;
+      }
+      
     } catch (error) {
       console.error('❌ Error publishing video:', error);
       
@@ -1191,9 +1554,64 @@ class AgoraService {
     if (!this.rtcEngine) return;
 
     try {
+      // Stop video element monitoring
+      this.stopVideoElementMonitoring();
+      
+      // Clean up local tracks
       if (this.localAudioTrack) {
         this.localAudioTrack.close();
         this.localAudioTrack = null;
+      }
+      
+      if (this.localVideoTrack) {
+        this.localVideoTrack.close();
+        this.localVideoTrack = null;
+      }
+      
+      // Clean up remote tracks
+      if (this.remoteAudioTrack) {
+        this.remoteAudioTrack.close();
+        this.remoteAudioTrack = null;
+      }
+      
+      if (this.remoteVideoTrack) {
+        this.remoteVideoTrack.close();
+        this.remoteVideoTrack = null;
+      }
+      
+      // Clean up video elements with enhanced cleanup
+      const remotePlayerElement = document.getElementById('remote-player');
+      if (remotePlayerElement) {
+        // Stop any playing videos before clearing
+        const remoteVideos = remotePlayerElement.querySelectorAll('video');
+        remoteVideos.forEach(video => {
+          try {
+            video.pause();
+            video.srcObject = null;
+            video.src = '';
+          } catch (error) {
+            console.warn('⚠️ Error stopping remote video:', error);
+          }
+        });
+        remotePlayerElement.innerHTML = '';
+        console.log('✅ Cleaned up remote video elements');
+      }
+      
+      const localPlayerElement = document.getElementById('local-player');
+      if (localPlayerElement) {
+        // Stop any playing videos before clearing
+        const localVideos = localPlayerElement.querySelectorAll('video');
+        localVideos.forEach(video => {
+          try {
+            video.pause();
+            video.srcObject = null;
+            video.src = '';
+          } catch (error) {
+            console.warn('⚠️ Error stopping local video:', error);
+          }
+        });
+        localPlayerElement.innerHTML = '';
+        console.log('✅ Cleaned up local video elements');
       }
       
       await this.rtcEngine.leave();

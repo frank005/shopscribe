@@ -19,12 +19,27 @@ export default function VideoStage({
   // const videoRef = useRef(null);
 
   useEffect(() => {
-    // Video element setup can be handled here if needed
-    // For now, we'll let Agora handle the video element directly
+    // Ensure video elements are ready for Agora
+    const remotePlayerElement = document.getElementById('remote-player');
+    const localPlayerElement = document.getElementById('local-player');
+    
+    if (remotePlayerElement) {
+      console.log('🎥 VideoStage: Remote player element ready');
+    }
+    
+    if (localPlayerElement) {
+      console.log('🎥 VideoStage: Local player element ready');
+    }
   }, []);
 
   return (
     <div className={`relative w-full h-full bg-black rounded-xl overflow-hidden ${className}`}>
+      {/* Video stage container for unique per-UID containers */}
+      <div 
+        id="video-stage"
+        className="absolute inset-0 w-full h-full"
+      />
+      
       {/* Local video container for host */}
       {(mode === 'local' || mode === 'both') && (
         <div 
@@ -34,7 +49,7 @@ export default function VideoStage({
         />
       )}
       
-      {/* Remote video container for audience */}
+      {/* Remote video container for audience (fallback) */}
       {(mode === 'remote' || mode === 'both') && (
         <div 
           id="remote-player"

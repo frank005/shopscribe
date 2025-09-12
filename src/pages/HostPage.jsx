@@ -4,6 +4,7 @@ import { CONFIG, generateChannelName } from '../services/config';
 import agoraService from '../services/agoraService';
 import { parseProductTags, isProductDisplayable, stripTags } from '../utils/product-sync';
 import { cleanSubtitleText } from '../utils/subtitle-clean';
+import { SHOPSCRIBE_PROMPT } from '../utils/shopscribe-prompt';
 import { 
   getProductHistory, 
   saveProductHistory, 
@@ -130,29 +131,12 @@ export default function HostPage() {
         }
       }, 1500); // Increased wait time for DOM to render
 
-      // Create AI agent
-      const agentPrompt = `You are a live shopping assistant. Listen to the host describing a product.
-When you detect a coherent product description (usually after a brief pause), output structured tags anywhere in your response using this exact format:
-
-[[product_name: ...]]
-[[category: ...]]
-[[brand: ...]]
-[[variant: ...]]
-[[features: ...]]
-[[condition: ...]]
-[[rarity: ...]]
-[[set: ...]]
-[[price_estimate: ...]]
-[[short_copy: ...]]
-[[theme: promo|rare|tech|apparel]]
-
-Keep normal spoken language natural for the audience, but the bracketed tags will be stripped from the visible UI and parsed into state. If the host says "next" or "move on", clear the current product and wait for a new description. Do not invent details.`;
-
+      // Create AI agent with unified prompt
       const agent = await agoraService.createAgent(
         channelName,
         CONFIG.AGORA_AGENT_UID,
         uid,
-        agentPrompt
+        SHOPSCRIBE_PROMPT
       );
 
       if (!agent) {
