@@ -177,7 +177,8 @@ Output:
           language: "en-US"
         },
         turn_detection: {
-          interrupt_mode: "append"
+          interrupt_mode: "append",
+          silence_duration_ms: 1000
         },
         parameters: {
           audio_scenario: "chorus",
