@@ -18,6 +18,7 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalChannels, setTotalChannels] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [showFullName, setShowFullName] = useState({});
 
   const pageSize = 20;
 
@@ -192,7 +193,47 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
   // Format channel name for display
   const formatChannelName = (name) => {
     if (!name) return 'Unknown Channel';
+    
+    // Handle new custom channel name pattern: UserInput_timestamp_random
+    const parts = name.split('_');
+    if (parts.length >= 3) {
+      // Check if it's the new format (has timestamp and random at the end)
+      const lastPart = parts[parts.length - 1];
+      const secondLastPart = parts[parts.length - 2];
+      
+      // If last two parts look like timestamp and random (6 digits + 3 alphanumeric)
+      if (/^\d{6}$/.test(secondLastPart) && /^[a-z0-9]{3}$/.test(lastPart)) {
+        // Remove timestamp and random parts, join the rest with spaces
+        const nameParts = parts.slice(0, -2);
+        return nameParts.join(' ');
+      }
+    }
+    
+    // Handle old ss_host_ pattern
+    if (name.startsWith('ss_host_')) {
+      const parts = name.split('_');
+      if (parts.length >= 3) {
+        const hostId = parts[2];
+        return `Host ${hostId}`;
+      }
+    }
+    
+    // For other patterns, clean up the name
     return name.replace(/^shopscribe_/, '').replace(/_/g, ' ');
+  };
+
+  // Get full channel name for tooltips
+  const getFullChannelName = (name) => {
+    if (!name) return 'Unknown Channel';
+    return name;
+  };
+
+  // Toggle full channel name display
+  const toggleFullName = (channelName) => {
+    setShowFullName(prev => ({
+      ...prev,
+      [channelName]: !prev[channelName]
+    }));
   };
 
   return (
@@ -310,14 +351,26 @@ export default function AudienceLobby({ onJoinChannel, className = '' }) {
                 transition={{ duration: 0.2, delay: index * 0.05 }}
                 className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 truncate">
-                      {formatChannelName(channel.name)}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {channel.region || 'Global'}
-                    </p>
+                <div className="mb-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-semibold text-gray-900 truncate">
+                        {formatChannelName(channel.name)}
+                      </h3>
+                      {channel.name.length > 20 && (
+                        <button
+                          onClick={() => toggleFullName(channel.name)}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline mt-1"
+                        >
+                          {showFullName[channel.name] ? 'Hide' : 'Show'} full name
+                        </button>
+                      )}
+                      {showFullName[channel.name] && (
+                        <div className="mt-2 p-2 bg-gray-100 rounded text-xs font-mono text-gray-700 break-all">
+                          {getFullChannelName(channel.name)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-1 text-sm text-gray-500">

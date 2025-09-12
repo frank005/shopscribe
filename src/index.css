@@ -42,4 +42,6 @@
   .backdrop-blur-light {
     backdrop-filter: blur(8px);
   }
+  
+  /* Remove custom tooltip styles - use browser default */
 }

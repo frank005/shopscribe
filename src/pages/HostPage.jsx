@@ -33,12 +33,28 @@ export default function HostPage() {
   const [channelName, setChannelName] = useState('');
   const [viewerCount, setViewerCount] = useState(0);
   const [hostCount, setHostCount] = useState(0);
+  const [customChannelName, setCustomChannelName] = useState('');
 
   // Load product history on component mount
   useEffect(() => {
     const history = getProductHistory();
     setProductHistory(history);
   }, []);
+
+  // Sanitize channel name input - only allow letters, numbers, and spaces
+  const sanitizeChannelName = (input) => {
+    return input
+      .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .trim() // Remove leading/trailing spaces
+      .substring(0, 30); // Limit length
+  };
+
+  // Handle custom channel name input
+  const handleCustomChannelNameChange = (e) => {
+    const sanitized = sanitizeChannelName(e.target.value);
+    setCustomChannelName(sanitized);
+  };
 
   // Fetch host/viewer counts
   const fetchHostInfo = async (channelName) => {
@@ -87,12 +103,21 @@ export default function HostPage() {
   const initializeConnection = useCallback(async () => {
     if (isConnecting || isConnected) return;
 
+    // Validate custom channel name
+    if (!customChannelName.trim()) {
+      toast.error('Please enter a channel name to start streaming');
+      return;
+    }
+
     setIsConnecting(true);
     toast.loading('Initializing connection...', { id: 'init' });
 
     try {
-      // Generate or use custom channel name
-      const channelName = agoraService.currentChannelName || generateChannelName('host');
+      // Generate channel name from custom input
+      const sanitizedInput = sanitizeChannelName(customChannelName);
+      const timestamp = Date.now().toString().slice(-6);
+      const random = Math.random().toString(36).substring(2, 5);
+      const channelName = `${sanitizedInput.replace(/\s+/g, '_')}_${timestamp}_${random}`;
       setChannelName(channelName);
 
       // Initialize Agora clients
@@ -218,7 +243,7 @@ export default function HostPage() {
       setIsConnecting(false);
       setIsConnected(false);
     }
-  }, [isConnecting, isConnected]);
+  }, [isConnecting, isConnected, customChannelName]);
 
   // Real-time updates for host/viewer counts
   useEffect(() => {
@@ -387,13 +412,31 @@ export default function HostPage() {
             <div className="card text-center">
               <h2 className="text-xl font-semibold mb-4">Start Streaming</h2>
               <p className="text-gray-600 mb-6">
-                Begin your live shopping stream and start describing products naturally.
-                Our AI will automatically detect and create product overlays.
+                Enter a name for your live shopping stream. This will help viewers find your channel.
               </p>
+              
+              <div className="mb-6">
+                <label htmlFor="channelName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Channel Name
+                </label>
+                <input
+                  id="channelName"
+                  type="text"
+                  value={customChannelName}
+                  onChange={handleCustomChannelNameChange}
+                  placeholder="e.g., My Shopping Stream"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  maxLength={30}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Only letters, numbers, and spaces allowed. Max 30 characters.
+                </p>
+              </div>
+              
               <button
                 onClick={initializeConnection}
-                disabled={isConnecting}
-                className="btn-primary w-full"
+                disabled={isConnecting || !customChannelName.trim()}
+                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isConnecting ? 'Connecting...' : 'Start Stream'}
               </button>

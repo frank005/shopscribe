@@ -28,6 +28,7 @@ export default function AudiencePage() {
   const [viewerCount, setViewerCount] = useState(0);
   const [hostCount, setHostCount] = useState(0);
   const [showSessionEndedModal, setShowSessionEndedModal] = useState(false);
+  const [wasBanned, setWasBanned] = useState(false);
   
   // Store UID to prevent multiple initializations with different UIDs
   const uidRef = useRef(null);
@@ -63,7 +64,7 @@ export default function AudiencePage() {
 
   // Initialize connection
   const initializeConnection = useCallback(async () => {
-    if (isConnecting || isConnected || !channelParam) return;
+    if (isConnecting || isConnected || !channelParam || wasBanned) return;
 
     setIsConnecting(true);
     toast.loading('Joining stream...', { id: 'join' });
@@ -224,6 +225,7 @@ export default function AudiencePage() {
       // Set up user banned handler
       agoraService.onUserBanned = (connectionState) => {
         console.log('🚫 User was banned from channel:', connectionState);
+        setWasBanned(true); // Mark as banned to prevent reconnection attempts
         setShowSessionEndedModal(true);
         setIsConnected(false);
       };
@@ -246,17 +248,17 @@ export default function AudiencePage() {
     } finally {
       setIsConnecting(false);
     }
-  }, [isConnecting, isConnected, channelParam]);
+  }, [isConnecting, isConnected, channelParam, wasBanned]);
 
   // Auto-connect when component mounts
   useEffect(() => {
-    if (channelParam) {
+    if (channelParam && !wasBanned) {
       initializeConnection();
-    } else {
+    } else if (!channelParam) {
       toast.error('No channel specified');
       navigate('/lobby');
     }
-  }, [channelParam, initializeConnection, navigate]);
+  }, [channelParam, initializeConnection, navigate, wasBanned]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -288,6 +290,7 @@ export default function AudiencePage() {
 
   const handleSessionEndedModalClose = () => {
     setShowSessionEndedModal(false);
+    setWasBanned(false); // Reset banned state so user can join other channels
     navigate('/lobby');
   };
 
@@ -335,15 +338,17 @@ export default function AudiencePage() {
           <div className="max-w-md mx-auto">
             <div className="card text-center">
               <h2 className="text-xl font-semibold mb-4">
-                {isConnecting ? 'Joining Stream...' : 'Connection Error'}
+                {isConnecting ? 'Joining Stream...' : wasBanned ? 'Stream Ended' : 'Connection Error'}
               </h2>
               <p className="text-gray-600 mb-6">
                 {isConnecting 
                   ? 'Please wait while we connect you to the stream.'
-                  : 'Unable to connect to the stream. Please try again.'
+                  : wasBanned 
+                    ? 'The host has ended this stream. You will be redirected to browse other channels.'
+                    : 'Unable to connect to the stream. Please try again.'
                 }
               </p>
-              {!isConnecting && (
+              {!isConnecting && !wasBanned && (
                 <button
                   onClick={initializeConnection}
                   className="btn-primary w-full"
