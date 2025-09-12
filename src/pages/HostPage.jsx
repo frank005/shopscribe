@@ -31,12 +31,34 @@ export default function HostPage() {
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [transcript, setTranscript] = useState('');
   const [channelName, setChannelName] = useState('');
+  const [viewerCount, setViewerCount] = useState(0);
+  const [hostCount, setHostCount] = useState(0);
 
   // Load product history on component mount
   useEffect(() => {
     const history = getProductHistory();
     setProductHistory(history);
   }, []);
+
+  // Fetch host/viewer counts
+  const fetchHostInfo = async (channelName) => {
+    try {
+      const response = await fetch(`/.netlify/functions/agora-hosts?channel=${encodeURIComponent(channelName)}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Host: Host info received:', data);
+        
+        // Handle nested data structure
+        const hostInfo = data.data || data;
+        console.log('📊 Host: Parsed host info:', hostInfo);
+        
+        setHostCount(hostInfo.hostCount || 0);
+        setViewerCount(hostInfo.viewerCount || 0);
+      }
+    } catch (error) {
+      console.error('❌ Host: Error fetching host info:', error);
+    }
+  };
 
   // Product control handlers
   const handleProductCopy = useCallback((product) => {
@@ -198,6 +220,21 @@ export default function HostPage() {
     }
   }, [isConnecting, isConnected]);
 
+  // Real-time updates for host/viewer counts
+  useEffect(() => {
+    if (!isConnected || !channelName) return;
+
+    // Initial fetch
+    fetchHostInfo(channelName);
+
+    // Set up polling for real-time updates
+    const interval = setInterval(() => {
+      fetchHostInfo(channelName);
+    }, 5000); // Update every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [isConnected, channelName]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -298,6 +335,9 @@ export default function HostPage() {
         // Reset mic/video states to default
         setMicrophoneEnabled(true);
         setVideoEnabled(true);
+        // Reset stream info
+        setHostCount(0);
+        setViewerCount(0);
         toast.success('Stream ended successfully');
       } catch (error) {
         toast.error('Failed to end stream');
@@ -404,6 +444,29 @@ export default function HostPage() {
 
             {/* Sidebar */}
             <div className="lg:col-span-1 space-y-6">
+              {/* Stream Info */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Stream Info</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Channel:</span>
+                    <span className="font-medium">{channelName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Hosts:</span>
+                    <span className="font-medium">{hostCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Viewers:</span>
+                    <span className="font-medium">{viewerCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Status:</span>
+                    <span className="font-medium text-green-600">Live</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Product History */}
               <ProductHistory
                 products={productHistory}

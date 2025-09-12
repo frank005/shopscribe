@@ -538,6 +538,18 @@ class AgoraService {
         console.log(`✅ Created container: ${id} in ${parent.id}`);
       } else {
         console.error(`❌ No parent container found for: ${id}`);
+        console.log('🔍 Available elements:', {
+          videoStage: !!videoStage,
+          remotePlayer: !!remotePlayer,
+          body: !!document.body
+        });
+        
+        // Fallback: append to body temporarily and hide it
+        if (document.body) {
+          el.style.display = 'none'; // Hide while in wrong parent
+          document.body.appendChild(el);
+          console.log(`⚠️ Created container: ${id} in body (fallback, hidden)`);
+        }
       }
     }
     return el;
@@ -559,6 +571,18 @@ class AgoraService {
       if (!el) {
         console.log(`⏳ Container not mounted yet: ${elementId}`);
         return false;
+      }
+      
+      // Check if container is in the right parent and move if needed
+      const videoStage = document.getElementById('video-stage');
+      const remotePlayer = document.getElementById('remote-player');
+      const correctParent = videoStage || remotePlayer;
+      
+      if (correctParent && el.parentNode !== correctParent) {
+        console.log(`🔄 Moving container ${elementId} to correct parent`);
+        correctParent.appendChild(el);
+        el.style.display = ''; // Show the container now that it's in the right place
+        console.log(`✅ Container ${elementId} now visible in correct parent`);
       }
       
       const rect = el.getBoundingClientRect();
@@ -610,6 +634,15 @@ class AgoraService {
     // Handle connection state changes
     this.rtcEngine.on('connection-state-change', (cur, prev, reason) => {
       console.log('🔗 [RTC] state change', { prev, cur, reason });
+      
+      // Handle UID_BANNED event - user was kicked from channel
+      if (reason === 'UID_BANNED') {
+        console.log('🚫 User was banned from channel');
+        // Trigger custom event for components to handle
+        if (this.onUserBanned) {
+          this.onUserBanned({ prev, cur, reason });
+        }
+      }
     });
 
     // Handle user published
@@ -642,7 +675,22 @@ class AgoraService {
         if (user.videoTrack) {
           const elId = `remote-player-${user.uid}`;
           this.ensureContainer(elId);
+          
+          // Try the unique container approach first
           this.playWhenReady(user.videoTrack, elId);
+          
+          // Fallback: if unique container fails, try the original remote-player
+          setTimeout(() => {
+            const uniqueContainer = document.getElementById(elId);
+            if (uniqueContainer && uniqueContainer.children.length === 0) {
+              console.log(`🔄 Fallback: Using original remote-player for ${user.uid}`);
+              const remotePlayer = document.getElementById('remote-player');
+              if (remotePlayer) {
+                user.videoTrack.play(remotePlayer);
+                console.log(`✅ [AUD] playing in remote-player (fallback)`);
+              }
+            }
+          }, 2000);
         }
       }
     });
@@ -1659,7 +1707,36 @@ class AgoraService {
     }
   }
 
-  // End stream (for host - stops agent and disconnects)
+  // Ban all users from channel (for host ending session)
+  async banAllUsersFromChannel(channelName) {
+    try {
+      console.log('🚫 Banning all users from channel:', channelName);
+      
+      const response = await fetch('/.netlify/functions/agora-ban-users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channelName: channelName
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to ban users from channel');
+      }
+
+      const data = await response.json();
+      console.log('✅ Users banned from channel:', data);
+      return data.data;
+    } catch (error) {
+      console.error('❌ Error banning users from channel:', error);
+      throw error;
+    }
+  }
+
+  // End stream (for host - stops agent, leaves channel, then kicks remaining users)
   async endStream() {
     try {
       // First unsubscribe from conversational AI to stop live updates
@@ -1675,9 +1752,24 @@ class AgoraService {
         console.warn('⚠️ Agent stop failed, but continuing:', agentError.message);
       }
       
+      // Store channel name before leaving
+      const channelName = this.currentChannelName;
+      
+      // Leave RTC and RTM channels first (host leaves the channel)
       await this.leaveRTCChannel();
       await this.leaveSignalingChannel();
       
+      // Now ban all remaining users from the channel (after host has left)
+      if (channelName) {
+        try {
+          await this.banAllUsersFromChannel(channelName);
+          console.log('✅ All remaining users kicked from channel');
+        } catch (banError) {
+          console.warn('⚠️ Failed to kick users from channel, but continuing:', banError.message);
+        }
+      }
+      
+      // Clean up all references
       this.rtcEngine = null;
       this.rtmClient = null;
       this.rtmChannel = null;
