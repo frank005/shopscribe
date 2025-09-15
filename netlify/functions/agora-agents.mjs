@@ -168,7 +168,7 @@ Output:
         remote_rtc_uids: ["*"], // Allow all clients to connect
         enable_string_uid: false,
         idle_timeout: 30,
-        agent_rtm_uid: agentUid.toString(), // Critical for RTM messaging
+        agent_rtm_uid: channelName.toString() + "_agent", // Critical for RTM messaging
         advanced_features: {
           enable_rtm: true // Required: enable RTM for data channel
         },
