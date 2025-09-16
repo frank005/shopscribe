@@ -184,7 +184,7 @@ Output:
         parameters: {
           audio_scenario: "chorus",
           data_channel: "rtm", // Required: specifies RTM as data channel
-          enable_metrics: true,
+          enable_metrics: false,
           enable_error_message: true,
           transcript: {
             enable: true, // Critical: explicitly enables transcripts

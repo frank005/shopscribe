@@ -799,34 +799,34 @@ class ConversationalAIAPI extends EventHelper {
     }
 
     handleRtmMessage(eventArgs) {
-        console.log('TRANSCRIPTION DEBUG - RTM message received:', eventArgs);
+        //console.log('TRANSCRIPTION DEBUG - RTM message received:', eventArgs);
         
         // Log all RTM messages for debugging
         if (eventArgs.message) {
             try {
                 const parsed = JSON.parse(eventArgs.message);
-                console.log('🔍 RTM MESSAGE DEBUG:', {
-                    object: parsed.object,
-                    text: parsed.text,
-                    content: parsed.content,
-                    type: parsed.type,
-                    customType: parsed.customType,
-                    publisher: eventArgs.publisher,
-                    fullMessage: parsed
-                });
+                //console.log('🔍 RTM MESSAGE DEBUG:', {
+                //    object: parsed.object,
+                //    text: parsed.text,
+                //    content: parsed.content,
+                //    type: parsed.type,
+                //    customType: parsed.customType,
+                //    publisher: eventArgs.publisher,
+                //    fullMessage: parsed
+                //});
             } catch (e) {
                 console.log('🔍 RTM MESSAGE DEBUG (non-JSON):', eventArgs.message);
             }
         }
         
         // Log ALL RTM messages regardless of type
-        console.log('🔍 ALL RTM MESSAGE RECEIVED:', {
-            channelName: eventArgs.channelName,
-            publisher: eventArgs.publisher,
-            message: eventArgs.message,
-            topicName: eventArgs.topicName,
-            channelType: eventArgs.channelType
-        });
+        //console.log('🔍 ALL RTM MESSAGE RECEIVED:', {
+        //    channelName: eventArgs.channelName,
+        //    publisher: eventArgs.publisher,
+        //    message: eventArgs.message,
+        //    topicName: eventArgs.topicName,
+        //    channelType: eventArgs.channelType
+        //});
 
         try {
             // RTM v2.x event structure is different
@@ -835,8 +835,8 @@ class ConversationalAIAPI extends EventHelper {
             let messageData = message;
             let parsedMessage;
 
-            console.log('TRANSCRIPTION DEBUG - Message data type:', typeof messageData);
-            console.log('TRANSCRIPTION DEBUG - Publisher:', publisher);
+            //console.log('TRANSCRIPTION DEBUG - Message data type:', typeof messageData);
+            //console.log('TRANSCRIPTION DEBUG - Publisher:', publisher);
 
             // Handle different message data types
             if (typeof messageData === 'string') {
@@ -858,12 +858,12 @@ class ConversationalAIAPI extends EventHelper {
                 const decoder = new TextDecoder('utf-8');
                 const messageString = decoder.decode(messageData);
                 // console.log('🎤 TRANSCRIPTION DECODED MESSAGE:', messageString);
-                console.log('TRANSCRIPTION DEBUG - Decoded binary message:', messageString);
+                //console.log('TRANSCRIPTION DEBUG - Decoded binary message:', messageString);
                 try {
                     parsedMessage = JSON.parse(messageString);
-                    console.log('TRANSCRIPTION DEBUG - Parsed binary message:', parsedMessage);
+                    //console.log('TRANSCRIPTION DEBUG - Parsed binary message:', parsedMessage);
                 } catch (parseError) {
-                    console.log('TRANSCRIPTION DEBUG - Plain text from binary:', messageString);
+                    //console.log('TRANSCRIPTION DEBUG - Plain text from binary:', messageString);
                     parsedMessage = {
                         type: 'transcription',
                         text: messageString,
@@ -933,7 +933,7 @@ class ConversationalAIAPI extends EventHelper {
 
     onAgentMetrics(agentUserId, metrics) {
         if (this.enableLog) {
-            console.log('Agent metrics:', agentUserId, metrics);
+            //console.log('Agent metrics:', agentUserId, metrics);
         }
         this.emit(EConversationalAIAPIEvents.AGENT_METRICS, agentUserId, metrics);
     }
