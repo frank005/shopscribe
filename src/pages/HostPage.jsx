@@ -202,7 +202,7 @@ export default function HostPage() {
         console.log('🎯 Host received agent response:', chatHistory);
         if (chatHistory && chatHistory.length > 0) {
           const latestMessage = chatHistory[chatHistory.length - 1];
-          console.log('🎯 Latest message:', latestMessage);
+          //console.log('🎯 Latest message:', latestMessage);
           if (latestMessage && latestMessage.data) {
             const text = latestMessage.data.text || '';
             console.log('🎯 Message text:', text);
@@ -210,9 +210,9 @@ export default function HostPage() {
             // Parse product tags
             const productData = parseProductTags(text);
             console.log('🎯 Parsed product data:', productData);
-            console.log('🎯 Is product displayable?', isProductDisplayable(productData));
+            //console.log('🎯 Is product displayable?', isProductDisplayable(productData));
             if (isProductDisplayable(productData)) {
-              console.log('🎯 Setting current product and showing overlay');
+              //console.log('🎯 Setting current product and showing overlay');
               setCurrentProduct(productData);
               setOverlayVisible(true);
               
@@ -220,7 +220,7 @@ export default function HostPage() {
               const updatedHistory = addProductToHistory(productData);
               setProductHistory(updatedHistory);
             } else {
-              console.log('🎯 Product not displayable, skipping overlay');
+              //console.log('🎯 Product not displayable, skipping overlay');
             }
             
             // Update transcript with cleaned text (strip tags for display)

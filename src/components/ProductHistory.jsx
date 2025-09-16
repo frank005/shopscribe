@@ -25,10 +25,10 @@ export default function ProductHistory({
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedItems, setExpandedItems] = useState(new Set());
 
-  console.log('📚 ProductHistory render:', { products: products.length, isHost });
+  //console.log('📚 ProductHistory render:', { products: products.length, isHost });
 
   if (!products || products.length === 0) {
-    console.log('📚 ProductHistory rendering empty state');
+    //console.log('📚 ProductHistory rendering empty state');
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-3">

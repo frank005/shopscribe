@@ -146,11 +146,11 @@ class CovSubRenderController extends EventHelper {
 
     handleMessage(message, context) {
         try {
-            console.log('=== MESSAGE HANDLER DEBUG ===');
-            console.log('Received message:', message);
-            console.log('Message object:', message.object);
-            console.log('Message module:', message.module);
-            console.log('Context:', context);
+            //console.log('=== MESSAGE HANDLER DEBUG ===');
+            //console.log('Received message:', message);
+            //console.log('Message object:', message.object);
+            //console.log('Message module:', message.module);
+            //console.log('Context:', context);
             
             if (message.object === 'assistant.transcript' || message.object === 'assistant.transcription' || message.object === 'user.transcription') {
                 // Handle transcription messages
@@ -158,9 +158,9 @@ class CovSubRenderController extends EventHelper {
                 this.handleTranscriptionMessage(message, context);
             } else if (message.object === 'message.info' || message.object === 'message.error') {
                 // Handle image upload responses
-                console.log('✅ Found image message response:', message);
-                console.log('Message object:', message.object);
-                console.log('Message module:', message.module);
+                //console.log('✅ Found image message response:', message);
+                //console.log('Message object:', message.object);
+                //console.log('Message module:', message.module);
                 this.handleImageMessageResponse(message, context);
             } else if (message.text || message.content) {
                 // Handle any message with text content as potential transcription
@@ -213,7 +213,7 @@ class CovSubRenderController extends EventHelper {
         }
         
         // DEBUG: Log full message structure to understand available fields
-        console.log('DEBUG - Full message structure:', JSON.stringify(message, null, 2));
+        //console.log('DEBUG - Full message structure:', JSON.stringify(message, null, 2));
         
         // Determine speaker based on message type/object - use consistent naming
         let speaker;
