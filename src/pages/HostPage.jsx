@@ -64,11 +64,11 @@ export default function HostPage() {
       const response = await fetch(`/.netlify/functions/agora-hosts?channel=${encodeURIComponent(channelName)}`);
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 Host: Host info received:', data);
+        //console.log('📊 Host: Host info received:', data);
         
         // Handle nested data structure
         const hostInfo = data.data || data;
-        console.log('📊 Host: Parsed host info:', hostInfo);
+        //console.log('📊 Host: Parsed host info:', hostInfo);
         
         setHostCount(hostInfo.hostCount || 0);
         setViewerCount(hostInfo.viewerCount || 0);
