@@ -76,10 +76,10 @@ class EventHelper {
     }
 
     emit(event, ...args) {
-        console.log(`📡 EventHelper.emit: ${event} with ${args.length} arguments`);
+        //console.log(`📡 EventHelper.emit: ${event} with ${args.length} arguments`);
         if (this.eventListeners.has(event)) {
             const handlers = this.eventListeners.get(event);
-            console.log(`📡 Found ${handlers.length} handlers for event: ${event}`);
+            //console.log(`📡 Found ${handlers.length} handlers for event: ${event}`);
             handlers.forEach(handler => {
                 try {
                     handler(...args);
@@ -154,7 +154,7 @@ class CovSubRenderController extends EventHelper {
             
             if (message.object === 'assistant.transcript' || message.object === 'assistant.transcription' || message.object === 'user.transcription') {
                 // Handle transcription messages
-                console.log('Found transcription message:', message.object);
+                //console.log('Found transcription message:', message.object);
                 this.handleTranscriptionMessage(message, context);
             } else if (message.object === 'message.info' || message.object === 'message.error') {
                 // Handle image upload responses
@@ -366,7 +366,7 @@ class CovSubRenderController extends EventHelper {
 
         // Update chat history and notify listeners
         this.chatHistory = currentChatHistory;
-        console.log('Chat history updated:', this.chatHistory);
+        //console.log('Chat history updated:', this.chatHistory);
         
         // Notify listeners about the transcription update
         if (this.onTranscriptionUpdate) {
@@ -888,7 +888,7 @@ class ConversationalAIAPI extends EventHelper {
 
     handleRtmPresence(presence) {
         if (this.enableLog) {
-            console.log('RTM presence event:', presence);
+            //console.log('RTM presence event:', presence);
         }
 
         const stateChanged = presence.stateChanged;
