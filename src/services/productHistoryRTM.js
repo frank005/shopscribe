@@ -96,10 +96,10 @@ class ProductHistoryRTMService {
     try {
       console.log('📦 ProductHistoryRTM: Loading product history from RTM for channel:', this.channelName);
       
-      const result = await this.rtmClient.storage.getChannelMetadata(
-        this.channelName,
-        'MESSAGE'
-      );
+      // Use getUserMetadata instead of getChannelMetadata (following RTM demo pattern)
+      const result = await this.rtmClient.storage.getUserMetadata({ 
+        userId: this.channelName 
+      });
 
       console.log('📦 ProductHistoryRTM: RTM metadata result:', result);
 
@@ -164,29 +164,11 @@ class ProductHistoryRTMService {
       
       console.log('📦 ProductHistoryRTM: Saving', limitedProducts.length, 'products to RTM (isInitial:', isInitial, ')');
       
-      if (isInitial) {
-        // Use setChannelMetadata for initial creation
-        await this.rtmClient.storage.setChannelMetadata(
-          this.channelName,
-          'MESSAGE',
-          [{
-            key: PRODUCT_HISTORY_KEY,
-            value: JSON.stringify(limitedProducts)
-          }],
-          {addTimeStamp:true, addUserId: false}
-        );
-      } else {
-        // Use updateChannelMetadata for updates
-        await this.rtmClient.storage.updateChannelMetadata(
-          this.channelName,
-          'MESSAGE',
-          [{
-            key: PRODUCT_HISTORY_KEY,
-            value: JSON.stringify(limitedProducts)
-          }],
-          {addTimeStamp:true, addUserId: false}
-        );
-      }
+      // Use setUserMetadata for both initial creation and updates (following RTM demo pattern)
+      await this.rtmClient.storage.setUserMetadata([{
+        key: PRODUCT_HISTORY_KEY,
+        value: JSON.stringify(limitedProducts)
+      }]);
 
       this.lastRTMUpdate = now;
       console.log('📦 ProductHistoryRTM: Successfully saved to RTM');
@@ -243,17 +225,13 @@ class ProductHistoryRTMService {
     // Clear local storage first
     clearLocalHistory(this.channelName);
     
-    // Clear RTM storage
-    if (this.isInitialized) {
+    // Clear RTM storage only if client is connected
+    if (this.isInitialized && this.rtmClient && this.rtmClient.connectionState === 'CONNECTED') {
       try {
-        // Use removeChannelMetadata to delete the specific key
-        await this.rtmClient.storage.removeChannelMetadata(
-          this.channelName,
-          'MESSAGE',
-          {
-            data: [{key: PRODUCT_HISTORY_KEY}]
-          }
-        );
+        // Use removeUserMetadata to delete the specific key (following RTM demo pattern)
+        await this.rtmClient.storage.removeUserMetadata([{
+          key: PRODUCT_HISTORY_KEY
+        }]);
         
         this.lastRTMUpdate = Date.now();
         this.pendingUpdate = null; // Clear any pending updates
@@ -263,6 +241,8 @@ class ProductHistoryRTMService {
         console.error('📦 ProductHistoryRTM: Failed to clear RTM storage:', error);
         // Still clear local storage even if RTM fails
       }
+    } else {
+      console.log('📦 ProductHistoryRTM: Skipping RTM clear - client not connected or not initialized');
     }
     
     // Notify listeners immediately

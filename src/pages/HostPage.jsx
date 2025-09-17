@@ -406,17 +406,19 @@ export default function HostPage() {
         console.log('🏁 HostPage: About to end stream');
         console.log('🏁 HostPage: agoraService.currentChannelName before endStream:', agoraService.currentChannelName);
         console.log('🏁 HostPage: channelName state before endStream:', channelName);
-        await agoraService.endStream(channelName);
-        console.log('🏁 HostPage: endStream completed');
         
-        // Clear product history for this channel
+        // Clear product history BEFORE disconnecting from RTM
         if (channelName) {
           await productHistoryRTM.clearHistory();
           console.log('🗑️ Cleared product history for ended stream:', channelName);
         }
         
-        // Clean up RTM service
+        // Clean up RTM service BEFORE disconnecting
         await productHistoryRTM.destroy();
+        
+        // Now end the stream (which disconnects RTM)
+        await agoraService.endStream(channelName);
+        console.log('🏁 HostPage: endStream completed');
         
         setIsConnected(false);
         setChannelName('');
