@@ -168,9 +168,10 @@ Output:
         remote_rtc_uids: ["*"], // Allow all clients to connect
         enable_string_uid: false,
         idle_timeout: 30,
-        agent_rtm_uid: agentUid.toString(), // Critical for RTM messaging
+        agent_rtm_uid: channelName.toString() + "_agent", // Critical for RTM messaging
         advanced_features: {
-          enable_rtm: true // Required: enable RTM for data channel
+          enable_rtm: true, // Required: enable RTM for data channel
+          enable_aivad: true // no TTS so latency doesn't matter
         },
         asr: {
           vendor: "ares",
@@ -178,12 +179,12 @@ Output:
         },
         turn_detection: {
           interrupt_mode: "append",
-          silence_duration_ms: 1000
+          silence_duration_ms: 2000
         },
         parameters: {
           audio_scenario: "chorus",
           data_channel: "rtm", // Required: specifies RTM as data channel
-          enable_metrics: true,
+          enable_metrics: false,
           enable_error_message: true,
           transcript: {
             enable: true, // Critical: explicitly enables transcripts
@@ -196,11 +197,12 @@ Output:
           system_messages: systemMessages,
           greeting_message: "",
           failure_message: "I'm having trouble processing that. Could you please rephrase?",
-          max_history: 500,
+          max_history: 10,
           input_modalities: ["text"], // Critical: enables text input
           output_modalities: ["text"], // Critical: enables text output
           params: {
-            model: "gpt-4o"
+            model: "gpt-4o",
+            temperature: 0.2
           }
         },
         tts: {
@@ -212,7 +214,7 @@ Output:
             region: process.env.MICROSOFT_TTS_REGION || 'eastus',
             voice_name: 'en-US-EvelynMultilingualNeural',
             sample_rate: 24000,
-			speed: 1.3
+			      speed: 1.3
           }
         }
       }

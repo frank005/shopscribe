@@ -73,6 +73,11 @@ export function stripTags(text) {
     return text || '';
   }
 
+  // If string starts with parentheses, return empty quotes
+  if (text.trim().startsWith('(')) {
+    return '';
+  }
+
   // Remove bracketed tags and clean up whitespace
   return text
     .replace(TAG_RE, '')

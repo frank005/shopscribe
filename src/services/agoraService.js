@@ -519,12 +519,12 @@ class AgoraService {
       const localAgoraElements = localPlayerElement.querySelectorAll('.agora_video_player');
       
       if (localVideos.length > 0 || localCanvases.length > 0 || localAgoraElements.length > 0) {
-        console.log('🔍 Local video elements found:', {
-          videos: localVideos.length,
-          canvases: localCanvases.length,
-          agoraElements: localAgoraElements.length,
-          total: localPlayerElement.children.length
-        });
+        //console.log('🔍 Local video elements found:', {
+        //  videos: localVideos.length,
+        //  canvases: localCanvases.length,
+        //  agoraElements: localAgoraElements.length,
+        //  total: localPlayerElement.children.length
+        //});
       } else if (this.localVideoTrack && this.localVideoTrack.isPlaying) {
         console.warn('⚠️ Local video track is playing but no video elements found in DOM');
       }
