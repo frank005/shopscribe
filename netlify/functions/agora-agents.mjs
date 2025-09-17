@@ -171,7 +171,7 @@ Output:
         agent_rtm_uid: channelName.toString() + "_agent", // Critical for RTM messaging
         advanced_features: {
           enable_rtm: true, // Required: enable RTM for data channel
-          enable_aivad: true // no TTS so latency doesn't matter
+          enable_aivad: false // no TTS so latency doesn't matter
         },
         asr: {
           vendor: "ares",
@@ -179,7 +179,7 @@ Output:
         },
         turn_detection: {
           interrupt_mode: "append",
-          silence_duration_ms: 2000
+          silence_duration_ms: 1300
         },
         parameters: {
           audio_scenario: "chorus",
