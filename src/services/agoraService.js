@@ -1155,7 +1155,7 @@ class AgoraService {
 
     try {
       console.log('🎥 Creating camera video track...');
-      this.localVideoTrack = await this.agoraRTC.createCameraVideoTrack();
+      this.localVideoTrack = await this.createCameraVideoTrack();
       console.log('🎥 Camera video track created:', this.localVideoTrack);
       
       console.log('🎥 Publishing video track to RTC engine...');
@@ -1328,10 +1328,20 @@ class AgoraService {
   // Create camera track with specific device
   async createCameraVideoTrack(deviceId = null) {
     try {
-      const config = {};
+      const config = {
+        encoderConfig: {
+          width: 1280,
+          height: 720,
+          frameRate: 24,
+          bitrateMax: 1500,
+          bitrateMin: 100
+        },
+        optimizationMode: "detail"
+      };
       if (deviceId) {
         config.cameraId = deviceId;
       }
+      console.log('🎥 Creating camera track with 720p 24fps configuration:', config);
       return await this.agoraRTC.createCameraVideoTrack(config);
     } catch (error) {
       console.error('❌ Error creating camera track:', error);

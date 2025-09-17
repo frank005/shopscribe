@@ -681,7 +681,7 @@ class ConversationalAIAPI extends EventHelper {
                 const subscribeOptions = {
                     withMessage: true,
                     withPresence: true,
-                    withMetadata: false,
+                    withMetadata: true,  // Enable metadata for product history
                     withLock: false
                 };
                 await this.rtmEngine.subscribe(this.channel, subscribeOptions);

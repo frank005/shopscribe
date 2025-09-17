@@ -1,51 +1,118 @@
-// Product History Management with Session Storage
+// Product History Management with User Input-Based Storage
 // Handles product history persistence and export functionality
+//
+// IMPORTANT LIMITATION: Late-joining audience members cannot see product history
+// that was built before they joined the channel. This is because:
+// 1. Product history is built client-side from live transcripts
+// 2. There is no server-side storage or database
+// 3. History is only available to users who were present when products were discussed
+//
+// This system uses the user input part of channel names (e.g., "LiveShoppingChannel" 
+// from "LiveShoppingChannel_123456_abc") to group related sessions together.
 
-const STORAGE_KEY = 'shopscribe_product_history';
+const STORAGE_PREFIX = 'shopscribe_product_history_';
 const MAX_HISTORY_ITEMS = 50; // Limit to prevent storage bloat
 
 /**
- * Get product history from session storage
+ * Extract user input part from channel name
+ * Channel format: UserInput_timestamp_random
+ * @param {string} channelName - Full channel name
+ * @returns {string} User input part (without timestamp and random)
+ */
+export function extractUserInput(channelName) {
+  if (!channelName) return '';
+  
+  const parts = channelName.split('_');
+  if (parts.length >= 3) {
+    // Check if it's the new format (has timestamp and random at the end)
+    const lastPart = parts[parts.length - 1];
+    const secondLastPart = parts[parts.length - 2];
+    
+    // If last two parts look like timestamp and random (6 digits + 3 alphanumeric)
+    if (/^\d{6}$/.test(secondLastPart) && /^[a-z0-9]{3}$/.test(lastPart)) {
+      // Remove timestamp and random parts, join the rest
+      const nameParts = parts.slice(0, -2);
+      return nameParts.join('_');
+    }
+  }
+  
+  // For other patterns, return as-is
+  return channelName;
+}
+
+/**
+ * Get storage key for a specific user input
+ * @param {string} channelName - Full channel name
+ * @returns {string} Storage key based on user input
+ */
+function getStorageKey(channelName) {
+  const userInput = extractUserInput(channelName);
+  return `${STORAGE_PREFIX}${userInput}`;
+}
+
+/**
+ * Get product history from sessionStorage for a specific user input
+ * @param {string} channelName - Full channel name (will extract user input)
  * @returns {Array} Array of product objects
  */
-export function getProductHistory() {
+export function getProductHistory(channelName) {
+  if (!channelName) {
+    console.warn('No channel name provided to getProductHistory');
+    return [];
+  }
+  
   try {
-    const stored = sessionStorage.getItem(STORAGE_KEY);
+    const storageKey = getStorageKey(channelName);
+    const stored = sessionStorage.getItem(storageKey);
     if (!stored) return [];
     
     const parsed = JSON.parse(stored);
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    console.error('Error loading product history:', error);
+    console.error('Error loading product history for user input', extractUserInput(channelName), ':', error);
     return [];
   }
 }
 
 /**
- * Save product history to session storage
+ * Save product history to sessionStorage for a specific user input
+ * @param {string} channelName - Full channel name (will extract user input)
  * @param {Array} products - Array of product objects
  */
-export function saveProductHistory(products) {
+export function saveProductHistory(channelName, products) {
+  if (!channelName) {
+    console.warn('No channel name provided to saveProductHistory');
+    return;
+  }
+  
   try {
     // Limit history size
     const limitedProducts = products.slice(-MAX_HISTORY_ITEMS);
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(limitedProducts));
+    const storageKey = getStorageKey(channelName);
+    sessionStorage.setItem(storageKey, JSON.stringify(limitedProducts));
   } catch (error) {
-    console.error('Error saving product history:', error);
+    console.error('Error saving product history for user input', extractUserInput(channelName), ':', error);
   }
 }
 
 /**
  * Add a new product to history or merge with existing product
+ * @param {string} channelName - Full channel name (will extract user input)
  * @param {Object} product - Product object to add
  * @returns {Array} Updated product history
  */
-export function addProductToHistory(product) {
+export function addProductToHistory(channelName, product) {
+  if (!channelName) {
+    console.warn('No channel name provided to addProductToHistory');
+    return [];
+  }
+  
   if (!product || typeof product !== 'object') {
-    return getProductHistory();
+    return getProductHistory(channelName);
   }
 
-  const history = getProductHistory();
+  const history = getProductHistory(channelName);
+  const userInput = extractUserInput(channelName);
   
   // Check if this is an update to an existing product
   const existingProductIndex = findExistingProductIndex(history, product);
@@ -62,7 +129,7 @@ export function addProductToHistory(product) {
       id: existingProduct.id // Keep the same ID
     };
     
-    console.log('🔄 Merged product update:', mergedProduct);
+    console.log('🔄 Merged product update for user input', userInput, ':', mergedProduct);
   } else {
     // Add as new product
     const productWithTimestamp = {
@@ -73,10 +140,10 @@ export function addProductToHistory(product) {
 
     // Add to beginning of array (most recent first)
     history.unshift(productWithTimestamp);
-    console.log('➕ Added new product to history:', productWithTimestamp);
+    console.log('➕ Added new product to history for user input', userInput, ':', productWithTimestamp);
   }
   
-  saveProductHistory(history);
+  saveProductHistory(channelName, history);
   return history;
 }
 
@@ -117,13 +184,68 @@ function mergeProductUpdate(existing, update) {
 }
 
 /**
- * Clear all product history
+ * Clear product history for a specific user input
+ * @param {string} channelName - Full channel name (will extract user input)
  */
-export function clearProductHistory() {
+export function clearProductHistory(channelName) {
+  if (!channelName) {
+    console.warn('No channel name provided to clearProductHistory');
+    return;
+  }
+  
   try {
-    sessionStorage.removeItem(STORAGE_KEY);
+    const storageKey = getStorageKey(channelName);
+    sessionStorage.removeItem(storageKey);
+    const userInput = extractUserInput(channelName);
+    console.log('🗑️ Cleared product history for user input:', userInput);
   } catch (error) {
-    console.error('Error clearing product history:', error);
+    console.error('Error clearing product history for user input', extractUserInput(channelName), ':', error);
+  }
+}
+
+/**
+ * Clear all product history for all user inputs
+ */
+export function clearAllProductHistory() {
+  try {
+    // Get all sessionStorage keys that start with our prefix
+    const keysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(STORAGE_PREFIX)) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    // Remove all matching keys
+    keysToRemove.forEach(key => {
+      sessionStorage.removeItem(key);
+    });
+    
+    console.log('🗑️ Cleared all product history for', keysToRemove.length, 'user inputs');
+  } catch (error) {
+    console.error('Error clearing all product history:', error);
+  }
+}
+
+/**
+ * Get all available user inputs with product history
+ * @returns {Array} Array of user input strings that have product history
+ */
+export function getUserInputsWithHistory() {
+  try {
+    const userInputs = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(STORAGE_PREFIX)) {
+        const userInput = key.replace(STORAGE_PREFIX, '');
+        userInputs.push(userInput);
+      }
+    }
+    return userInputs;
+  } catch (error) {
+    console.error('Error getting user inputs with history:', error);
+    return [];
   }
 }
 

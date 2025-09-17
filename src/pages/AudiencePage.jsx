@@ -4,12 +4,11 @@ import toast from 'react-hot-toast';
 import { CONFIG } from '../services/config';
 import agoraService from '../services/agoraService';
 import { parseProductTags, isProductDisplayable, stripTags } from '../utils/product-sync';
-import { cleanSubtitleText } from '../utils/subtitle-clean';
 import { 
   getProductHistory, 
-  addProductToHistory,
-  clearProductHistory
+  addProductToHistory
 } from '../utils/productHistory';
+import productHistoryRTM from '../services/productHistoryRTM';
 import VideoStage from '../components/VideoStage';
 import ProductOverlay from '../components/ProductOverlay';
 import ProductHistory from '../components/ProductHistory';
@@ -35,10 +34,28 @@ export default function AudiencePage() {
   // Store UID to prevent multiple initializations with different UIDs
   const uidRef = useRef(null);
 
-  // Load product history on component mount
+  // Load product history when channel name changes
   useEffect(() => {
-    const history = getProductHistory();
-    setProductHistory(history);
+    if (channelName) {
+      // Load from local storage first (fast)
+      const localHistory = getProductHistory(channelName);
+      setProductHistory(localHistory);
+      console.log('📚 Loaded local product history for channel:', channelName, 'with', localHistory.length, 'products');
+    }
+  }, [channelName]);
+
+  // Listen for RTM product history updates
+  useEffect(() => {
+    const handleProductHistoryUpdate = (products) => {
+      console.log('📚 AudiencePage: RTM product history updated:', products.length, 'products');
+      setProductHistory(products);
+    };
+
+    productHistoryRTM.addListener(handleProductHistoryUpdate);
+
+    return () => {
+      productHistoryRTM.removeListener(handleProductHistoryUpdate);
+    };
   }, []);
 
   // Fetch host/viewer counts
@@ -104,6 +121,14 @@ export default function AudiencePage() {
       // Join RTM channel
       await agoraService.joinSignalingChannel(channelParam);
 
+      // Initialize RTM product history service
+      try {
+        await productHistoryRTM.initialize(agoraService.rtmClient, channelParam);
+        console.log('📚 AudiencePage: RTM product history service initialized');
+      } catch (error) {
+        console.error('📚 AudiencePage: Failed to initialize RTM product history service:', error);
+      }
+
       // CRITICAL: Subscribe to RTM messages like the host does
       console.log('🎯 Audience: Subscribing to RTM messages like host...');
       try {
@@ -149,10 +174,16 @@ export default function AudiencePage() {
               setCurrentProduct(productData);
               setOverlayVisible(true);
               
-              // Add to product history with session storage
-              const updatedHistory = addProductToHistory(productData);
-              setProductHistory(updatedHistory);
-              console.log('🎯 Audience: Product added to history, new history length:', updatedHistory.length);
+              // Add to product history with RTM storage
+              productHistoryRTM.addProduct(productData).then(updatedHistory => {
+                setProductHistory(updatedHistory);
+                console.log('🎯 Audience: Product added to history, new history length:', updatedHistory.length);
+              }).catch(error => {
+                console.error('🎯 Audience: Failed to add product to RTM history:', error);
+                // Fallback to local storage
+                const localHistory = addProductToHistory(channelName, productData);
+                setProductHistory(localHistory);
+              });
             } else {
               console.log('🎯 Audience: Product not displayable, skipping overlay');
             }
@@ -197,8 +228,14 @@ export default function AudiencePage() {
               setOverlayVisible(true);
               
               // Add to product history
-              const updatedHistory = addProductToHistory(productData);
-              setProductHistory(updatedHistory);
+              productHistoryRTM.addProduct(productData).then(updatedHistory => {
+                setProductHistory(updatedHistory);
+              }).catch(error => {
+                console.error('🎯 Audience: Failed to add product to RTM history:', error);
+                // Fallback to local storage
+                const localHistory = addProductToHistory(channelName, productData);
+                setProductHistory(localHistory);
+              });
             }
             
             // Update transcript
@@ -290,6 +327,10 @@ export default function AudiencePage() {
     if (isConnected) {
       agoraService.disconnect();
     }
+    // Clean up RTM service
+    productHistoryRTM.destroy().catch(error => {
+      console.error('📚 AudiencePage: Error destroying RTM service:', error);
+    });
     navigate('/lobby');
   };
 
@@ -351,8 +392,7 @@ export default function AudiencePage() {
         setIsConnected(false);
       }
       
-      // Clear product history for new stream
-      clearProductHistory();
+      // Clear product history for new stream (will be loaded when new channel connects)
       setProductHistory([]);
       setCurrentProduct(null);
       setOverlayVisible(false);
@@ -400,6 +440,14 @@ export default function AudiencePage() {
       // Join RTM channel
       await agoraService.joinSignalingChannel(newChannelName);
 
+      // Initialize RTM product history service for new channel
+      try {
+        await productHistoryRTM.initialize(agoraService.rtmClient, newChannelName);
+        console.log('📚 AudiencePage: RTM product history service initialized for new channel');
+      } catch (error) {
+        console.error('📚 AudiencePage: Failed to initialize RTM product history service for new channel:', error);
+      }
+
       // Subscribe to RTM messages for the new channel
       try {
         await agoraService.conversationalAI.subscribeMessage(newChannelName);
@@ -424,9 +472,15 @@ export default function AudiencePage() {
               setCurrentProduct(productData);
               setOverlayVisible(true);
               
-              // Add to product history with session storage
-              const updatedHistory = addProductToHistory(productData);
-              setProductHistory(updatedHistory);
+              // Add to product history with RTM storage
+              productHistoryRTM.addProduct(productData).then(updatedHistory => {
+                setProductHistory(updatedHistory);
+              }).catch(error => {
+                console.error('🎯 Audience: Failed to add product to RTM history:', error);
+                // Fallback to local storage
+                const localHistory = addProductToHistory(channelName, productData);
+                setProductHistory(localHistory);
+              });
             }
             
             // Update transcript with cleaned text
