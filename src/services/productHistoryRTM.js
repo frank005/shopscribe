@@ -96,10 +96,10 @@ class ProductHistoryRTMService {
     try {
       console.log('📦 ProductHistoryRTM: Loading product history from RTM for channel:', this.channelName);
       
-      const result = await this.rtmClient.storage.getChannelMetadata({
-        channelName: this.channelName,
-        channelType: 'MESSAGE'
-      });
+      const result = await this.rtmClient.storage.getChannelMetadata(
+        this.channelName,
+        'MESSAGE'
+      );
 
       console.log('📦 ProductHistoryRTM: RTM metadata result:', result);
 
@@ -166,24 +166,26 @@ class ProductHistoryRTMService {
       
       if (isInitial) {
         // Use setChannelMetadata for initial creation
-        await this.rtmClient.storage.setChannelMetadata({
-          channelName: this.channelName,
-          channelType: 'MESSAGE',
-          metadata: [{
+        await this.rtmClient.storage.setChannelMetadata(
+          this.channelName,
+          'MESSAGE',
+          [{
             key: PRODUCT_HISTORY_KEY,
             value: JSON.stringify(limitedProducts)
-          }]
-        });
+          }],
+          {addTimeStamp:true, addUserId: false}
+        );
       } else {
         // Use updateChannelMetadata for updates
-        await this.rtmClient.storage.updateChannelMetadata({
-          channelName: this.channelName,
-          channelType: 'MESSAGE',
-          metadata: [{
+        await this.rtmClient.storage.updateChannelMetadata(
+          this.channelName,
+          'MESSAGE',
+          [{
             key: PRODUCT_HISTORY_KEY,
             value: JSON.stringify(limitedProducts)
-          }]
-        });
+          }],
+          {addTimeStamp:true, addUserId: false}
+        );
       }
 
       this.lastRTMUpdate = now;
@@ -245,13 +247,13 @@ class ProductHistoryRTMService {
     if (this.isInitialized) {
       try {
         // Use removeChannelMetadata to delete the specific key
-        await this.rtmClient.storage.removeChannelMetadata({
-          channelName: this.channelName,
-          channelType: 'MESSAGE',
-          metadata: [{
-            key: PRODUCT_HISTORY_KEY
-          }]
-        });
+        await this.rtmClient.storage.removeChannelMetadata(
+          this.channelName,
+          'MESSAGE',
+          {
+            data: [{key: PRODUCT_HISTORY_KEY}]
+          }
+        );
         
         this.lastRTMUpdate = Date.now();
         this.pendingUpdate = null; // Clear any pending updates
