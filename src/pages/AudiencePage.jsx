@@ -48,12 +48,15 @@ export default function AudiencePage() {
   useEffect(() => {
     const handleProductHistoryUpdate = (products) => {
       console.log('📚 AudiencePage: RTM product history updated:', products.length, 'products');
+      console.log('📚 AudiencePage: Updated products:', products.map(p => ({ name: p.product_name, id: p.id })));
       setProductHistory(products);
     };
 
+    console.log('📚 AudiencePage: Adding RTM product history listener');
     productHistoryRTM.addListener(handleProductHistoryUpdate);
 
     return () => {
+      console.log('📚 AudiencePage: Removing RTM product history listener');
       productHistoryRTM.removeListener(handleProductHistoryUpdate);
     };
   }, []);
@@ -123,10 +126,28 @@ export default function AudiencePage() {
 
       // Initialize RTM product history service
       try {
-        await productHistoryRTM.initialize(agoraService.rtmClient, channelParam);
+        console.log('📚 AudiencePage: About to initialize RTM product history service...');
+        console.log('📚 AudiencePage: RTM client available:', !!agoraService.rtmClient);
+        console.log('📚 AudiencePage: RTM client connection state:', agoraService.rtmClient?.connectionState);
+        console.log('📚 AudiencePage: Channel param:', channelParam);
+        
+        const loadedProducts = await productHistoryRTM.initialize(agoraService.rtmClient, channelParam);
         console.log('📚 AudiencePage: RTM product history service initialized');
+        console.log('📚 AudiencePage: Loaded products from RTM:', loadedProducts?.length || 0);
+        console.log('📚 AudiencePage: First loaded product:', loadedProducts?.[0]);
+        
+        // Update the product history state with loaded products
+        if (loadedProducts && loadedProducts.length > 0) {
+          setProductHistory(loadedProducts);
+          console.log('📚 AudiencePage: Updated product history state with', loadedProducts.length, 'products');
+        }
       } catch (error) {
         console.error('📚 AudiencePage: Failed to initialize RTM product history service:', error);
+        console.error('📚 AudiencePage: Error details:', {
+          message: error.message,
+          code: error.code,
+          name: error.name
+        });
       }
 
       // CRITICAL: Subscribe to RTM messages like the host does
