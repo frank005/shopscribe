@@ -7,10 +7,10 @@
 // 2. There is no server-side storage or database
 // 3. History is only available to users who were present when products were discussed
 //
-// This system uses the user input part of channel names (e.g., "LiveShoppingChannel" 
+// This system uses the user input part of channel names (e.g., "LiveShoppingChannel"
 // from "LiveShoppingChannel_123456_abc") to group related sessions together.
 
-const STORAGE_PREFIX = 'shopscribe_product_history_';
+const STORAGE_PREFIX = "shopscribe_product_history_";
 const MAX_HISTORY_ITEMS = 50; // Limit to prevent storage bloat
 
 /**
@@ -20,24 +20,25 @@ const MAX_HISTORY_ITEMS = 50; // Limit to prevent storage bloat
  * @returns {string} User input part (without timestamp and random)
  */
 export function extractUserInput(channelName) {
-  if (!channelName) return '';
-  
-  const parts = channelName.split('_');
-  if (parts.length >= 3) {
-    // Check if it's the new format (has timestamp and random at the end)
-    const lastPart = parts[parts.length - 1];
-    const secondLastPart = parts[parts.length - 2];
-    
-    // If last two parts look like timestamp and random (6 digits + 3 alphanumeric)
-    if (/^\d{6}$/.test(secondLastPart) && /^[a-z0-9]{3}$/.test(lastPart)) {
-      // Remove timestamp and random parts, join the rest
-      const nameParts = parts.slice(0, -2);
-      return nameParts.join('_');
-    }
-  }
-  
-  // For other patterns, return as-is
+  if (!channelName) return "";
   return channelName;
+
+  // const parts = channelName.split("_");
+  // if (parts.length >= 3) {
+  //   // Check if it's the new format (has timestamp and random at the end)
+  //   const lastPart = parts[parts.length - 1];
+  //   const secondLastPart = parts[parts.length - 2];
+
+  //   // If last two parts look like timestamp and random (6 digits + 3 alphanumeric)
+  //   if (/^\d{6}$/.test(secondLastPart) && /^[a-z0-9]{3}$/.test(lastPart)) {
+  //     // Remove timestamp and random parts, join the rest
+  //     const nameParts = parts.slice(0, -2);
+  //     return nameParts.join("_");
+  //   }
+  // }
+
+  // For other patterns, return as-is
+  // return channelName;
 }
 
 /**
@@ -57,19 +58,24 @@ function getStorageKey(channelName) {
  */
 export function getProductHistory(channelName) {
   if (!channelName) {
-    console.warn('No channel name provided to getProductHistory');
+    console.warn("No channel name provided to getProductHistory");
     return [];
   }
-  
+
   try {
     const storageKey = getStorageKey(channelName);
     const stored = sessionStorage.getItem(storageKey);
     if (!stored) return [];
-    
+
     const parsed = JSON.parse(stored);
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    console.error('Error loading product history for user input', extractUserInput(channelName), ':', error);
+    console.error(
+      "Error loading product history for user input",
+      extractUserInput(channelName),
+      ":",
+      error,
+    );
     return [];
   }
 }
@@ -81,17 +87,22 @@ export function getProductHistory(channelName) {
  */
 export function saveProductHistory(channelName, products) {
   if (!channelName) {
-    console.warn('No channel name provided to saveProductHistory');
+    console.warn("No channel name provided to saveProductHistory");
     return;
   }
-  
+
   try {
     // Limit history size
     const limitedProducts = products.slice(-MAX_HISTORY_ITEMS);
     const storageKey = getStorageKey(channelName);
     sessionStorage.setItem(storageKey, JSON.stringify(limitedProducts));
   } catch (error) {
-    console.error('Error saving product history for user input', extractUserInput(channelName), ':', error);
+    console.error(
+      "Error saving product history for user input",
+      extractUserInput(channelName),
+      ":",
+      error,
+    );
   }
 }
 
@@ -103,46 +114,56 @@ export function saveProductHistory(channelName, products) {
  */
 export function addProductToHistory(channelName, product) {
   if (!channelName) {
-    console.warn('No channel name provided to addProductToHistory');
+    console.warn("No channel name provided to addProductToHistory");
     return [];
   }
-  
-  if (!product || typeof product !== 'object') {
+
+  if (!product || typeof product !== "object") {
     return getProductHistory(channelName);
   }
 
   const history = getProductHistory(channelName);
   const userInput = extractUserInput(channelName);
-  
+
   // Check if this is an update to an existing product
   const existingProductIndex = findExistingProductIndex(history, product);
-  
+
   if (existingProductIndex !== -1) {
     // Merge with existing product
     const existingProduct = history[existingProductIndex];
     const mergedProduct = mergeProductUpdate(existingProduct, product);
-    
+
     // Update the existing product in place
     history[existingProductIndex] = {
       ...mergedProduct,
       timestamp: new Date().toISOString(),
-      id: existingProduct.id // Keep the same ID
+      id: existingProduct.id, // Keep the same ID
     };
-    
-    console.log('🔄 Merged product update for user input', userInput, ':', mergedProduct);
+
+    console.log(
+      "🔄 Merged product update for user input",
+      userInput,
+      ":",
+      mergedProduct,
+    );
   } else {
     // Add as new product
     const productWithTimestamp = {
       ...product,
       timestamp: new Date().toISOString(),
-      id: Date.now() + Math.random() // Simple unique ID
+      id: Date.now() + Math.random(), // Simple unique ID
     };
 
     // Add to beginning of array (most recent first)
     history.unshift(productWithTimestamp);
-    console.log('➕ Added new product to history for user input', userInput, ':', productWithTimestamp);
+    console.log(
+      "➕ Added new product to history for user input",
+      userInput,
+      ":",
+      productWithTimestamp,
+    );
   }
-  
+
   saveProductHistory(channelName, history);
   return history;
 }
@@ -157,11 +178,14 @@ function findExistingProductIndex(history, newProduct) {
   if (!newProduct.product_name) {
     return -1; // Can't match without a product name
   }
-  
-  return history.findIndex(existing => {
+
+  return history.findIndex((existing) => {
     // Match by product name (case insensitive)
     if (existing.product_name && newProduct.product_name) {
-      return existing.product_name.toLowerCase() === newProduct.product_name.toLowerCase();
+      return (
+        existing.product_name.toLowerCase() ===
+        newProduct.product_name.toLowerCase()
+      );
     }
     return false;
   });
@@ -179,7 +203,7 @@ function mergeProductUpdate(existing, update) {
     ...update,
     // Preserve timestamp and ID from existing
     timestamp: existing.timestamp,
-    id: existing.id
+    id: existing.id,
   };
 }
 
@@ -189,17 +213,23 @@ function mergeProductUpdate(existing, update) {
  */
 export function clearProductHistory(channelName) {
   if (!channelName) {
-    console.warn('No channel name provided to clearProductHistory');
+    console.warn("No channel name provided to clearProductHistory");
     return;
   }
-  
+
   try {
     const storageKey = getStorageKey(channelName);
+
     sessionStorage.removeItem(storageKey);
     const userInput = extractUserInput(channelName);
-    console.log('🗑️ Cleared product history for user input:', userInput);
+    console.log("🗑️ Cleared product history for user input:", userInput);
   } catch (error) {
-    console.error('Error clearing product history for user input', extractUserInput(channelName), ':', error);
+    console.error(
+      "Error clearing product history for user input",
+      extractUserInput(channelName),
+      ":",
+      error,
+    );
   }
 }
 
@@ -208,6 +238,7 @@ export function clearProductHistory(channelName) {
  */
 export function clearAllProductHistory() {
   try {
+    console.log("🌯 storageKey");
     // Get all sessionStorage keys that start with our prefix
     const keysToRemove = [];
     for (let i = 0; i < sessionStorage.length; i++) {
@@ -216,15 +247,19 @@ export function clearAllProductHistory() {
         keysToRemove.push(key);
       }
     }
-    
+
     // Remove all matching keys
-    keysToRemove.forEach(key => {
+    keysToRemove.forEach((key) => {
       sessionStorage.removeItem(key);
     });
-    
-    console.log('🗑️ Cleared all product history for', keysToRemove.length, 'user inputs');
+
+    console.log(
+      "🗑️ Cleared all product history for",
+      keysToRemove.length,
+      "user inputs",
+    );
   } catch (error) {
-    console.error('Error clearing all product history:', error);
+    console.error("Error clearing all product history:", error);
   }
 }
 
@@ -238,13 +273,13 @@ export function getUserInputsWithHistory() {
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
       if (key && key.startsWith(STORAGE_PREFIX)) {
-        const userInput = key.replace(STORAGE_PREFIX, '');
+        const userInput = key.replace(STORAGE_PREFIX, "");
         userInputs.push(userInput);
       }
     }
     return userInputs;
   } catch (error) {
-    console.error('Error getting user inputs with history:', error);
+    console.error("Error getting user inputs with history:", error);
     return [];
   }
 }
@@ -257,20 +292,22 @@ export function getUserInputsWithHistory() {
 export function exportProductHistory(products, filename = null) {
   try {
     const dataStr = JSON.stringify(products, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+
     const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = filename || `shopscribe-products-${new Date().toISOString().split('T')[0]}.json`;
-    
+    link.download =
+      filename ||
+      `shopscribe-products-${new Date().toISOString().split("T")[0]}.json`;
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     URL.revokeObjectURL(url);
   } catch (error) {
-    console.error('Error exporting product history:', error);
+    console.error("Error exporting product history:", error);
   }
 }
 
@@ -281,15 +318,18 @@ export function exportProductHistory(products, filename = null) {
 export function copyProductToClipboard(product) {
   try {
     const text = formatProductForClipboard(product);
-    navigator.clipboard.writeText(text).then(() => {
-      console.log('Product copied to clipboard');
-    }).catch((error) => {
-      console.error('Error copying to clipboard:', error);
-      // Fallback for older browsers
-      fallbackCopyToClipboard(text);
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        console.log("Product copied to clipboard");
+      })
+      .catch((error) => {
+        console.error("Error copying to clipboard:", error);
+        // Fallback for older browsers
+        fallbackCopyToClipboard(text);
+      });
   } catch (error) {
-    console.error('Error copying product:', error);
+    console.error("Error copying product:", error);
   }
 }
 
@@ -299,12 +339,12 @@ export function copyProductToClipboard(product) {
  * @returns {string} Formatted text
  */
 function formatProductForClipboard(product) {
-  if (!product || typeof product !== 'object') {
-    return '';
+  if (!product || typeof product !== "object") {
+    return "";
   }
 
   const lines = [];
-  
+
   if (product.product_name) lines.push(`Product: ${product.product_name}`);
   if (product.category) lines.push(`Category: ${product.category}`);
   if (product.brand) lines.push(`Brand: ${product.brand}`);
@@ -315,8 +355,8 @@ function formatProductForClipboard(product) {
   if (product.set) lines.push(`Set: ${product.set}`);
   if (product.price_estimate) lines.push(`Price: ${product.price_estimate}`);
   if (product.short_copy) lines.push(`Description: ${product.short_copy}`);
-  
-  return lines.join('\n');
+
+  return lines.join("\n");
 }
 
 /**
@@ -324,22 +364,22 @@ function formatProductForClipboard(product) {
  * @param {string} text - Text to copy
  */
 function fallbackCopyToClipboard(text) {
-  const textArea = document.createElement('textarea');
+  const textArea = document.createElement("textarea");
   textArea.value = text;
-  textArea.style.position = 'fixed';
-  textArea.style.left = '-999999px';
-  textArea.style.top = '-999999px';
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
+  textArea.style.top = "-999999px";
   document.body.appendChild(textArea);
   textArea.focus();
   textArea.select();
-  
+
   try {
-    document.execCommand('copy');
-    console.log('Product copied to clipboard (fallback)');
+    document.execCommand("copy");
+    console.log("Product copied to clipboard (fallback)");
   } catch (error) {
-    console.error('Fallback copy failed:', error);
+    console.error("Fallback copy failed:", error);
   }
-  
+
   document.body.removeChild(textArea);
 }
 
@@ -349,18 +389,19 @@ function fallbackCopyToClipboard(text) {
  */
 export function getProductHistoryStats() {
   const history = getProductHistory();
-  
+
   const stats = {
     total: history.length,
     categories: {},
     themes: {},
-    recent: history.slice(0, 5) // Last 5 products
+    recent: history.slice(0, 5), // Last 5 products
   };
 
   // Count categories and themes
-  history.forEach(product => {
+  history.forEach((product) => {
     if (product.category) {
-      stats.categories[product.category] = (stats.categories[product.category] || 0) + 1;
+      stats.categories[product.category] =
+        (stats.categories[product.category] || 0) + 1;
     }
     if (product.theme) {
       stats.themes[product.theme] = (stats.themes[product.theme] || 0) + 1;

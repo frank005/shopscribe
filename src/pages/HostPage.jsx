@@ -1,24 +1,27 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import toast from 'react-hot-toast';
-import { CONFIG } from '../services/config';
-import agoraService from '../services/agoraService';
-import { parseProductTags, isProductDisplayable, stripTags } from '../utils/product-sync';
-import { SHOPSCRIBE_PROMPT } from '../utils/shopscribe-prompt';
-import { 
-  getProductHistory, 
-  addProductToHistory, 
-  exportProductHistory, 
-  copyProductToClipboard 
-} from '../utils/productHistory';
-import productHistoryRTM from '../services/productHistoryRTM';
-import VideoStage from '../components/VideoStage';
-import ProductOverlay from '../components/ProductOverlay';
-import ProductHistory from '../components/ProductHistory';
-import HostControls from '../components/HostControls';
-import DeviceSettings from '../components/DeviceSettings';
+import React, { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
+import { CONFIG } from "../services/config";
+import agoraService from "../services/agoraService";
+import {
+  parseProductTags,
+  isProductDisplayable,
+  stripTags,
+} from "../utils/product-sync";
+import { SHOPSCRIBE_PROMPT } from "../utils/shopscribe-prompt";
+import {
+  getProductHistory,
+  addProductToHistory,
+  exportProductHistory,
+  copyProductToClipboard,
+} from "../utils/productHistory";
+import productHistoryRTM from "../services/productHistoryRTM";
+import VideoStage from "../components/VideoStage";
+import ProductOverlay from "../components/ProductOverlay";
+import ProductHistory from "../components/ProductHistory";
+import HostControls from "../components/HostControls";
+import DeviceSettings from "../components/DeviceSettings";
 
 export default function HostPage() {
-  
   // State management
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -27,11 +30,11 @@ export default function HostPage() {
   const [productHistory, setProductHistory] = useState([]);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
-  const [transcript, setTranscript] = useState('');
-  const [channelName, setChannelName] = useState('');
+  const [transcript, setTranscript] = useState("");
+  const [channelName, setChannelName] = useState("");
   const [viewerCount, setViewerCount] = useState(0);
   const [hostCount, setHostCount] = useState(0);
-  const [customChannelName, setCustomChannelName] = useState('');
+  const [customChannelName, setCustomChannelName] = useState("");
   const [deviceSettingsOpen, setDeviceSettingsOpen] = useState(false);
 
   // Load product history when channel name changes
@@ -40,16 +43,24 @@ export default function HostPage() {
       // Load from local storage first (fast)
       const localHistory = getProductHistory(channelName);
       setProductHistory(localHistory);
-      
+
       // RTM service will load from server and update if needed
-      console.log('🏠 HostPage: Loaded local product history:', localHistory.length, 'products');
+      console.log(
+        "🏠 HostPage: Loaded local product history:",
+        localHistory.length,
+        "products",
+      );
     }
   }, [channelName]);
 
   // Listen for RTM product history updates
   useEffect(() => {
     const handleProductHistoryUpdate = (products) => {
-      console.log('🏠 HostPage: RTM product history updated:', products.length, 'products');
+      console.log(
+        "🏠 HostPage: RTM product history updated:",
+        products.length,
+        "products",
+      );
       setProductHistory(products);
     };
 
@@ -63,8 +74,8 @@ export default function HostPage() {
   // Sanitize channel name input - only allow letters, numbers, and spaces
   const sanitizeChannelName = (input) => {
     return input
-      .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/[^a-zA-Z0-9\s]/g, "") // Remove special characters
+      .replace(/\s+/g, " ") // Replace multiple spaces with single space
       .trim() // Remove leading/trailing spaces
       .substring(0, 30); // Limit length
   };
@@ -78,45 +89,47 @@ export default function HostPage() {
   // Fetch host/viewer counts
   const fetchHostInfo = async (channelName) => {
     try {
-      const response = await fetch(`/.netlify/functions/agora-hosts?channel=${encodeURIComponent(channelName)}`);
+      const response = await fetch(
+        `/.netlify/functions/agora-hosts?channel=${encodeURIComponent(channelName)}`,
+      );
       if (response.ok) {
         const data = await response.json();
         //console.log('📊 Host: Host info received:', data);
-        
+
         // Handle nested data structure
         const hostInfo = data.data || data;
         //console.log('📊 Host: Parsed host info:', hostInfo);
-        
+
         setHostCount(hostInfo.hostCount || 0);
         setViewerCount(hostInfo.viewerCount || 0);
       }
     } catch (error) {
-      console.error('❌ Host: Error fetching host info:', error);
+      console.error("❌ Host: Error fetching host info:", error);
     }
   };
 
   // Product control handlers
   const handleProductCopy = useCallback((product) => {
     copyProductToClipboard(product);
-    toast.success('Product copied to clipboard');
+    toast.success("Product copied to clipboard");
   }, []);
 
   const handleProductExport = useCallback(() => {
     exportProductHistory(productHistory);
-    toast.success('Product history exported');
+    toast.success("Product history exported");
   }, [productHistory]);
 
   const handleProductNext = useCallback(() => {
     setCurrentProduct(null);
     setOverlayVisible(false);
-    toast.success('Moving to next product');
+    toast.success("Moving to next product");
   }, []);
 
   const handleProductHistoryClear = useCallback(async () => {
     if (channelName) {
       await productHistoryRTM.clearHistory();
       setProductHistory([]);
-      toast.success('Product history cleared');
+      toast.success("Product history cleared");
     }
   }, [channelName]);
 
@@ -126,43 +139,53 @@ export default function HostPage() {
 
     // Validate custom channel name
     if (!customChannelName.trim()) {
-      toast.error('Please enter a channel name to start streaming');
+      toast.error("Please enter a channel name to start streaming");
       return;
     }
 
     setIsConnecting(true);
-    toast.loading('Initializing connection...', { id: 'init' });
+    toast.loading("Initializing connection...", { id: "init" });
 
     try {
       // Generate channel name from custom input
       const sanitizedInput = sanitizeChannelName(customChannelName);
       const timestamp = Date.now().toString().slice(-6);
       const random = Math.random().toString(36).substring(2, 5);
-      const channelName = `${sanitizedInput.replace(/\s+/g, '_')}_${timestamp}_${random}`;
+      const channelName = `${sanitizedInput.replace(/\s+/g, "_")}_${timestamp}_${random}`;
       setChannelName(channelName);
 
       // Initialize Agora clients
       const appId = CONFIG.AGORA_APP_ID;
       if (!appId) {
-        throw new Error('Agora App ID not configured');
+        throw new Error("Agora App ID not configured");
       }
 
-      const uid = agoraService.customUID || Math.floor(Math.random() * 1000000) + 1000;
-      
+      const uid =
+        agoraService.customUID || Math.floor(Math.random() * 1000000) + 1000;
+
       // Initialize clients
       const initialized = await agoraService.initializeClients(appId, uid);
       if (!initialized) {
-        throw new Error('Failed to initialize Agora clients');
+        throw new Error("Failed to initialize Agora clients");
       }
 
       // Join RTC channel as host
-      console.log('🏠 HostPage: About to call joinAsHost with:', { channelName, uid });
-      console.log('🏠 HostPage: agoraService.currentChannelName before joinAsHost:', agoraService.currentChannelName);
+      console.log("🏠 HostPage: About to call joinAsHost with:", {
+        channelName,
+        uid,
+      });
+      console.log(
+        "🏠 HostPage: agoraService.currentChannelName before joinAsHost:",
+        agoraService.currentChannelName,
+      );
       const rtcJoined = await agoraService.joinAsHost(channelName, uid);
-      console.log('🏠 HostPage: joinAsHost result:', rtcJoined);
-      console.log('🏠 HostPage: agoraService.currentChannelName after joinAsHost:', agoraService.currentChannelName);
+      console.log("🏠 HostPage: joinAsHost result:", rtcJoined);
+      console.log(
+        "🏠 HostPage: agoraService.currentChannelName after joinAsHost:",
+        agoraService.currentChannelName,
+      );
       if (!rtcJoined) {
-        throw new Error('Failed to join RTC channel as host');
+        throw new Error("Failed to join RTC channel as host");
       }
 
       // Join RTM channel
@@ -171,40 +194,46 @@ export default function HostPage() {
       // Initialize RTM product history service
       try {
         await productHistoryRTM.initialize(agoraService.rtmClient, channelName);
-        console.log('🏠 HostPage: RTM product history service initialized');
+        console.log("🏠 HostPage: RTM product history service initialized");
       } catch (error) {
-        console.error('🏠 HostPage: Failed to initialize RTM product history service:', error);
+        console.error(
+          "🏠 HostPage: Failed to initialize RTM product history service:",
+          error,
+        );
       }
 
       // Set connection state first so UI renders
       setIsConnecting(false);
       setIsConnected(true);
-      
+
       // Wait for DOM to render, then publish media
       setTimeout(async () => {
         try {
-          console.log('🎥 Host: Starting media publishing...');
+          console.log("🎥 Host: Starting media publishing...");
           const mediaPublished = await agoraService.publishMedia();
-          console.log('🎥 Host: Media publishing result:', mediaPublished);
+          console.log("🎥 Host: Media publishing result:", mediaPublished);
           if (!mediaPublished) {
-            console.error('❌ Host: Failed to publish media');
-            toast.error('Failed to start video stream');
+            console.error("❌ Host: Failed to publish media");
+            toast.error("Failed to start video stream");
           } else {
-            console.log('✅ Host: Media published successfully');
-            toast.success('Video stream started');
-            
+            console.log("✅ Host: Media published successfully");
+            toast.success("Video stream started");
+
             // Force a re-render to ensure video displays
             setTimeout(() => {
-              window.dispatchEvent(new Event('resize'));
+              window.dispatchEvent(new Event("resize"));
             }, 500);
           }
         } catch (mediaError) {
-          console.error('❌ Host: Media publishing error:', mediaError);
+          console.error("❌ Host: Media publishing error:", mediaError);
           // Handle permission errors specifically
-          if (mediaError.message.includes('access denied') || mediaError.message.includes('not found')) {
+          if (
+            mediaError.message.includes("access denied") ||
+            mediaError.message.includes("not found")
+          ) {
             toast.error(mediaError.message, { duration: 5000 });
           } else {
-            toast.error('Failed to start video stream: ' + mediaError.message);
+            toast.error("Failed to start video stream: " + mediaError.message);
           }
         }
       }, 1500); // Increased wait time for DOM to render
@@ -214,11 +243,11 @@ export default function HostPage() {
         channelName,
         CONFIG.AGORA_AGENT_UID,
         uid,
-        SHOPSCRIBE_PROMPT
+        SHOPSCRIBE_PROMPT,
       );
 
       if (!agent) {
-        throw new Error('Failed to create AI agent');
+        throw new Error("Failed to create AI agent");
       }
 
       // Start receiving transcriptions from the agent
@@ -226,36 +255,45 @@ export default function HostPage() {
 
       // Set up transcription listener
       agoraService.onAgentResponse((chatHistory) => {
-        console.log('🎯 Host received agent response:', chatHistory);
+        console.log("🎯 Host received agent response:", chatHistory);
         if (chatHistory && chatHistory.length > 0) {
           const latestMessage = chatHistory[chatHistory.length - 1];
           //console.log('🎯 Latest message:', latestMessage);
           if (latestMessage && latestMessage.data) {
-            const text = latestMessage.data.text || '';
-            console.log('🎯 Message text:', text);
-            
+            const text = latestMessage.data.text || "";
+            console.log("🎯 Message text:", text);
+
             // Parse product tags
             const productData = parseProductTags(text);
-            console.log('🎯 Parsed product data:', productData);
+            console.log("🎯 Parsed product data:", productData);
             //console.log('🎯 Is product displayable?', isProductDisplayable(productData));
             if (isProductDisplayable(productData)) {
               //console.log('🎯 Setting current product and showing overlay');
               setCurrentProduct(productData);
               setOverlayVisible(true);
-              
+
               // Add to product history with RTM storage
-              productHistoryRTM.addProduct(productData).then(updatedHistory => {
-                setProductHistory(updatedHistory);
-              }).catch(error => {
-                console.error('🎯 Failed to add product to RTM history:', error);
-                // Fallback to local storage
-                const localHistory = addProductToHistory(channelName, productData);
-                setProductHistory(localHistory);
-              });
+              productHistoryRTM
+                .addProduct(productData)
+                .then((updatedHistory) => {
+                  setProductHistory(updatedHistory);
+                })
+                .catch((error) => {
+                  console.error(
+                    "🎯 Failed to add product to RTM history:",
+                    error,
+                  );
+                  // Fallback to local storage
+                  const localHistory = addProductToHistory(
+                    channelName,
+                    productData,
+                  );
+                  setProductHistory(localHistory);
+                });
             } else {
               //console.log('🎯 Product not displayable, skipping overlay');
             }
-            
+
             // Update transcript with cleaned text (strip tags for display)
             const cleanedText = stripTags(text);
             setTranscript(cleanedText);
@@ -264,19 +302,18 @@ export default function HostPage() {
       });
 
       // Add debug event listeners
-      agoraService.conversationalAI.on('debug-log', (message) => {
-        console.log('🔍 AI Debug:', message);
-      });
-      
-      agoraService.conversationalAI.on('agent-error', (agentUserId, error) => {
-        console.error('❌ AI Agent Error:', agentUserId, error);
+      agoraService.conversationalAI.on("debug-log", (message) => {
+        console.log("🔍 AI Debug:", message);
       });
 
-      toast.success('Connected successfully!', { id: 'init' });
-      
+      agoraService.conversationalAI.on("agent-error", (agentUserId, error) => {
+        console.error("❌ AI Agent Error:", agentUserId, error);
+      });
+
+      toast.success("Connected successfully!", { id: "init" });
     } catch (error) {
-      console.error('Connection error:', error);
-      toast.error(`Connection failed: ${error.message}`, { id: 'init' });
+      console.error("Connection error:", error);
+      toast.error(`Connection failed: ${error.message}`, { id: "init" });
       setIsConnecting(false);
       setIsConnected(false);
     }
@@ -318,8 +355,11 @@ export default function HostPage() {
 
   const handlePinProduct = () => {
     if (currentProduct && isProductDisplayable(currentProduct)) {
-      setProductHistory(prev => [currentProduct, ...prev.slice(0, CONFIG.MAX_PRODUCT_HISTORY - 1)]);
-      toast.success('Product pinned to history');
+      setProductHistory((prev) => [
+        currentProduct,
+        ...prev.slice(0, CONFIG.MAX_PRODUCT_HISTORY - 1),
+      ]);
+      toast.success("Product pinned to history");
     }
   };
 
@@ -328,9 +368,9 @@ export default function HostPage() {
       const newState = !microphoneEnabled;
       await agoraService.setMicrophoneEnabled(newState);
       setMicrophoneEnabled(newState);
-      toast.success(newState ? 'Microphone enabled' : 'Microphone disabled');
+      toast.success(newState ? "Microphone enabled" : "Microphone disabled");
     } catch (error) {
-      toast.error('Failed to toggle microphone');
+      toast.error("Failed to toggle microphone");
     }
   };
 
@@ -339,9 +379,9 @@ export default function HostPage() {
       const newState = !videoEnabled;
       await agoraService.setVideoEnabled(newState);
       setVideoEnabled(newState);
-      toast.success(newState ? 'Video enabled' : 'Video disabled');
+      toast.success(newState ? "Video enabled" : "Video disabled");
     } catch (error) {
-      toast.error('Failed to toggle video');
+      toast.error("Failed to toggle video");
     }
   };
 
@@ -351,37 +391,38 @@ export default function HostPage() {
   };
 
   const handleRemoveProduct = (product, index) => {
-    setProductHistory(prev => prev.filter((_, i) => i !== index));
-    toast.success('Product removed from history');
+    setProductHistory((prev) => prev.filter((_, i) => i !== index));
+    toast.success("Product removed from history");
   };
 
   const handleCopyProductHistory = async () => {
     try {
       const historyText = JSON.stringify(productHistory, null, 2);
       await navigator.clipboard.writeText(historyText);
-      toast.success('Product history copied to clipboard');
+      toast.success("Product history copied to clipboard");
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-      toast.error('Failed to copy to clipboard');
+      console.error("Failed to copy to clipboard:", error);
+      toast.error("Failed to copy to clipboard");
     }
   };
 
   const handleExportProductHistory = () => {
     try {
+      console.log("🌯🌯🌯🌯 handleExportProductHistory");
       const historyData = JSON.stringify(productHistory, null, 2);
-      const blob = new Blob([historyData], { type: 'application/json' });
+      const blob = new Blob([historyData], { type: "application/json" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `product-history-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `product-history-${new Date().toISOString().split("T")[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success('Product history exported');
+      toast.success("Product history exported");
     } catch (error) {
-      console.error('Failed to export:', error);
-      toast.error('Failed to export product history');
+      console.error("Failed to export:", error);
+      toast.error("Failed to export product history");
     }
   };
 
@@ -401,30 +442,43 @@ export default function HostPage() {
   };
 
   const handleEndStream = async () => {
-    if (window.confirm('Are you sure you want to end the stream? This will disconnect all viewers.')) {
+    if (
+      window.confirm(
+        "Are you sure you want to end the stream? This will disconnect all viewers.",
+      )
+    ) {
       try {
-        console.log('🏁 HostPage: About to end stream');
-        console.log('🏁 HostPage: agoraService.currentChannelName before endStream:', agoraService.currentChannelName);
-        console.log('🏁 HostPage: channelName state before endStream:', channelName);
-        
+        console.log("🏁 HostPage: About to end stream");
+        console.log(
+          "🏁 HostPage: agoraService.currentChannelName before endStream:",
+          agoraService.currentChannelName,
+        );
+        console.log(
+          "🏁 HostPage: channelName state before endStream:",
+          channelName,
+        );
+
         // Clear product history BEFORE disconnecting from RTM
         if (channelName) {
           await productHistoryRTM.clearHistory();
-          console.log('🗑️ Cleared product history for ended stream:', channelName);
+          console.log(
+            "🗑️ Cleared product history for ended stream:",
+            channelName,
+          );
         }
-        
+
         // Clean up RTM service BEFORE disconnecting
         await productHistoryRTM.destroy();
-        
+
         // Now end the stream (which disconnects RTM)
         await agoraService.endStream(channelName);
-        console.log('🏁 HostPage: endStream completed');
-        
+        console.log("🏁 HostPage: endStream completed");
+
         setIsConnected(false);
-        setChannelName('');
+        setChannelName("");
         setCurrentProduct(null);
         setOverlayVisible(false);
-        setTranscript('');
+        setTranscript("");
         setProductHistory([]);
         // Reset mic/video states to default
         setMicrophoneEnabled(true);
@@ -432,10 +486,10 @@ export default function HostPage() {
         // Reset stream info
         setHostCount(0);
         setViewerCount(0);
-        toast.success('Stream ended successfully');
+        toast.success("Stream ended successfully");
       } catch (error) {
-        console.error('🏁 HostPage: Error ending stream:', error);
-        toast.error('Failed to end stream');
+        console.error("🏁 HostPage: Error ending stream:", error);
+        toast.error("Failed to end stream");
       }
     }
   };
@@ -457,20 +511,18 @@ export default function HostPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Host Live Stream</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Host Live Stream
+            </h1>
             <p className="text-gray-600">
-              {isConnected 
+              {isConnected
                 ? `Streaming to channel: ${channelName}`
-                : 'Start your live shopping stream'
-              }
+                : "Start your live shopping stream"}
             </p>
           </div>
-          
+
           {isConnected && (
-            <button
-              onClick={handleEndStream}
-              className="btn-danger"
-            >
+            <button onClick={handleEndStream} className="btn-danger">
               End Stream
             </button>
           )}
@@ -482,11 +534,15 @@ export default function HostPage() {
             <div className="card text-center">
               <h2 className="text-xl font-semibold mb-4">Start Streaming</h2>
               <p className="text-gray-600 mb-6">
-                Enter a name for your live shopping stream. This will help viewers find your channel.
+                Enter a name for your live shopping stream. This will help
+                viewers find your channel.
               </p>
-              
+
               <div className="mb-6">
-                <label htmlFor="channelName" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="channelName"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Channel Name
                 </label>
                 <input
@@ -502,13 +558,13 @@ export default function HostPage() {
                   Only letters, numbers, and spaces allowed. Max 30 characters.
                 </p>
               </div>
-              
+
               <button
                 onClick={initializeConnection}
                 disabled={isConnecting || !customChannelName.trim()}
                 className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isConnecting ? 'Connecting...' : 'Start Stream'}
+                {isConnecting ? "Connecting..." : "Start Stream"}
               </button>
             </div>
           </div>
@@ -530,7 +586,7 @@ export default function HostPage() {
                   />
                 </VideoStage>
               </div>
-              
+
               {/* Host Controls */}
               <HostControls
                 currentProduct={currentProduct}
@@ -544,14 +600,25 @@ export default function HostPage() {
                 onToggleVideo={handleToggleVideo}
                 onOpenDeviceSettings={handleOpenDeviceSettings}
               />
-              
+
               {/* Controls Help */}
               <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="text-sm font-medium text-blue-900 mb-2">Control Guide:</h4>
+                <h4 className="text-sm font-medium text-blue-900 mb-2">
+                  Control Guide:
+                </h4>
                 <div className="text-xs text-blue-700 space-y-1">
-                  <p><strong>Show/Hide:</strong> Toggle product overlay visibility</p>
-                  <p><strong>Next:</strong> Clear current product and wait for new description</p>
-                  <p><strong>Pin:</strong> Save current product to history sidebar</p>
+                  <p>
+                    <strong>Show/Hide:</strong> Toggle product overlay
+                    visibility
+                  </p>
+                  <p>
+                    <strong>Next:</strong> Clear current product and wait for
+                    new description
+                  </p>
+                  <p>
+                    <strong>Pin:</strong> Save current product to history
+                    sidebar
+                  </p>
                 </div>
               </div>
             </div>
@@ -560,7 +627,9 @@ export default function HostPage() {
             <div className="lg:col-span-1 space-y-6">
               {/* Stream Info */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Stream Info</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Stream Info
+                </h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Channel:</span>
@@ -589,13 +658,15 @@ export default function HostPage() {
                 onClear={handleProductHistoryClear}
                 isHost={true}
               />
-              
+
               {/* Live Transcript */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Live Transcript</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Live Transcript
+                </h3>
                 <div className="bg-gray-50 rounded-lg p-3 max-h-48 overflow-y-auto">
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {transcript || 'Start speaking to see transcript...'}
+                    {transcript || "Start speaking to see transcript..."}
                   </p>
                 </div>
               </div>
@@ -603,7 +674,7 @@ export default function HostPage() {
           </div>
         )}
       </div>
-      
+
       {/* Device Settings Modal */}
       <DeviceSettings
         isOpen={deviceSettingsOpen}
