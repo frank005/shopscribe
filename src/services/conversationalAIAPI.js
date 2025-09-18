@@ -846,7 +846,7 @@ class ConversationalAIAPI extends EventHelper {
             if (typeof messageData === 'string') {
                 try {
                     parsedMessage = JSON.parse(messageData);
-                    console.log('TRANSCRIPTION DEBUG - Parsed JSON message:', parsedMessage);
+                   // console.log('TRANSCRIPTION DEBUG - Parsed JSON message:', parsedMessage);
                 } catch (parseError) {
                     // If it's not JSON, treat as plain text transcription
                     console.log('TRANSCRIPTION DEBUG - Plain text message received:', messageData);
@@ -881,7 +881,7 @@ class ConversationalAIAPI extends EventHelper {
                 return;
             }
 
-            console.log('TRANSCRIPTION DEBUG - Sending to controller:', parsedMessage);
+            //console.log('TRANSCRIPTION DEBUG - Sending to controller:', parsedMessage);
             this.covSubRenderController.handleMessage(parsedMessage, {
                 publisher: publisher
             });
