@@ -167,7 +167,6 @@ class ProductHistoryRTMService {
                 this.storageListeners.size,
                 "listeners from event",
               );
-              this.notifyListeners(products);
             } catch (error) {
               console.error(
                 "📦 ProductHistoryRTM: Failed to parse product history from RTM:",
@@ -226,7 +225,6 @@ class ProductHistoryRTMService {
                 this.storageListeners.size,
                 "listeners from SNAPSHOT event",
               );
-              this.notifyListeners(products);
             } catch (error) {
               console.error(
                 "📦 ProductHistoryRTM: Failed to parse product history from SNAPSHOT:",
@@ -281,18 +279,12 @@ class ProductHistoryRTMService {
         this.rtmClient?.connectionState,
       );
 
-      // Use a consistent system user ID for channel metadata storage
-      const systemUserId = `channel_${this.channelName}`;
-      console.log("📦 ProductHistoryRTM: System user ID:", systemUserId);
-      console.log("📦 ProductHistoryRTM: About to call getUserMetadata...");
+      console.log("📦 ProductHistoryRTM: About to call getChannelMetadata...");
 
       const result = await this.rtmClient.storage.getChannelMetadata(
         this.channelName,
         "MESSAGE",
       );
-      // const result = await this.rtmClient.storage.getUserMetadata({
-      //   userId: systemUserId,
-      // });
 
       console.log("📦 ProductHistoryRTM: RTM metadata result:", result);
       console.log(
@@ -409,34 +401,24 @@ class ProductHistoryRTMService {
       // Limit products for RTM storage
       const limitedProducts = products.slice(0, MAX_RTM_PRODUCTS);
 
-      console.log(
-        "📦 ProductHistoryRTM: Saving",
-        limitedProducts.length,
-        "products to RTM (isInitial:",
-        isInitial,
-        ")",
-      );
-      console.log("📦 ProductHistoryRTM: Channel name:", this.channelName);
-      console.log(
-        "📦 ProductHistoryRTM: RTM client available:",
-        !!this.rtmClient,
-      );
-      console.log(
-        "📦 ProductHistoryRTM: RTM client connection state:",
-        this.rtmClient?.connectionState,
-      );
+      //console.log(
+      //  "📦 ProductHistoryRTM: Saving",
+      //  limitedProducts.length,
+      //  "products to RTM (isInitial:",
+      //  isInitial,
+      //  ")",
+      //);
+      //console.log("📦 ProductHistoryRTM: Channel name:", this.channelName);
+      //console.log(
+      //  "📦 ProductHistoryRTM: RTM client available:",
+      //  !!this.rtmClient,
+      //);
       console.log(
         "📦 ProductHistoryRTM: Products to save:",
         limitedProducts.map((p) => ({ name: p.product_name, id: p.id })),
       );
 
-      // Use a consistent system user ID for channel metadata storage
-      const systemUserId = `channel_${this.channelName}`;
-      console.log(
-        "📦 ProductHistoryRTM: System user ID for saving:",
-        systemUserId,
-      );
-      console.log("📦 ProductHistoryRTM: About to call setUserMetadata...");
+      //console.log("📦 ProductHistoryRTM: About to call setChannelMetadata...");
 
       await this.rtmClient.storage.setChannelMetadata(
         this.channelName,
@@ -448,22 +430,11 @@ class ProductHistoryRTMService {
           },
         ],
       );
-
-      await this.rtmClient.storage.setUserMetadata(
-        [
-          {
-            key: PRODUCT_HISTORY_KEY,
-            value: JSON.stringify(limitedProducts),
-          },
-        ],
-        systemUserId,
-      );
-
       this.lastRTMUpdate = now;
-      console.log(
-        "📦 ProductHistoryRTM: Successfully saved to RTM with key:",
-        PRODUCT_HISTORY_KEY,
-      );
+      //console.log(
+      //  "📦 ProductHistoryRTM: Successfully saved to RTM with key:",
+      //  PRODUCT_HISTORY_KEY,
+      //);
       console.log(
         "📦 ProductHistoryRTM: Saved data length:",
         JSON.stringify(limitedProducts).length,
@@ -487,9 +458,9 @@ class ProductHistoryRTMService {
    * @returns {Array} Updated product history
    */
   async addProduct(product) {
-    console.log("📦 ProductHistoryRTM: addProduct called with:", product);
-    console.log("📦 ProductHistoryRTM: Channel name:", this.channelName);
-    console.log("📦 ProductHistoryRTM: Is initialized:", this.isInitialized);
+    //console.log("📦 ProductHistoryRTM: addProduct called with:", product);
+    //console.log("📦 ProductHistoryRTM: Channel name:", this.channelName);
+    //console.log("📦 ProductHistoryRTM: Is initialized:", this.isInitialized);
 
     if (!product || typeof product !== "object") {
       console.log(
@@ -507,16 +478,16 @@ class ProductHistoryRTMService {
 
     // Determine if this is initial creation or update
     const isInitial = !this.hasExistingMetadata;
-    console.log("📦 ProductHistoryRTM: Is initial save:", isInitial);
+    //console.log("📦 ProductHistoryRTM: Is initial save:", isInitial);
     console.log(
       "📦 ProductHistoryRTM: Has existing metadata:",
       this.hasExistingMetadata,
     );
 
     // Save to RTM storage
-    console.log("📦 ProductHistoryRTM: About to save to RTM...");
+    //console.log("📦 ProductHistoryRTM: About to save to RTM...");
     const saveResult = await this.saveToRTM(updatedHistory, false, isInitial);
-    console.log("📦 ProductHistoryRTM: Save to RTM result:", saveResult);
+    //console.log("📦 ProductHistoryRTM: Save to RTM result:", saveResult);
 
     // Mark that we now have metadata
     this.hasExistingMetadata = true;
@@ -527,7 +498,6 @@ class ProductHistoryRTMService {
       this.storageListeners.size,
       "listeners",
     );
-    this.notifyListeners(updatedHistory);
 
     return updatedHistory;
   }
@@ -554,22 +524,12 @@ class ProductHistoryRTMService {
     if (
       this.isInitialized &&
       this.rtmClient &&
-      this.rtmClient.connectionState === "CONNECTED"
+      this.rtmClient.rtmImpl.connectionState === "CONNECTED"
     ) {
       try {
-        // Use a consistent system user ID for channel metadata storage
-        const systemUserId = `channel_${this.channelName}`;
         await this.rtmClient.storage.removeChannelMetadata(
           this.channelName,
           "MESSAGE",
-        );
-        await this.rtmClient.storage.removeUserMetadata(
-          [
-            {
-              key: PRODUCT_HISTORY_KEY,
-            },
-          ],
-          systemUserId,
         );
 
         this.lastRTMUpdate = Date.now();
@@ -589,8 +549,6 @@ class ProductHistoryRTMService {
       );
     }
 
-    // Notify listeners immediately
-    this.notifyListeners([]);
   }
 
   /**
@@ -607,20 +565,6 @@ class ProductHistoryRTMService {
    */
   removeListener(listener) {
     this.storageListeners.delete(listener);
-  }
-
-  /**
-   * Notify all listeners of product history updates
-   * @param {Array} products - Updated product array
-   */
-  notifyListeners(products) {
-    this.storageListeners.forEach((listener) => {
-      try {
-        listener(products);
-      } catch (error) {
-        console.error("📦 ProductHistoryRTM: Error in listener:", error);
-      }
-    });
   }
 
   /**

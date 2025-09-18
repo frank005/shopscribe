@@ -140,24 +140,18 @@ class AgoraService {
       // Store SDK instances for later use
       this.agoraRTC = AgoraRTCInstance;
       this.agoraRTM = AgoraRTMInstance;
+
+      // Enable Agora RTC logs
+      AgoraRTCInstance.setLogLevel(3); // 3=INFO
+      AgoraRTCInstance.enableLogUpload(); // Enable log upload for debugging
+      console.log('🔍 Agora RTC logs enabled at INFO level (3) - INFO');
+      console.log('🔍 Agora RTC log upload enabled');
       
       // Initialize RTC Engine - using live mode for host/audience roles with VP9 codec
       this.rtcEngine = AgoraRTCInstance.createClient({ mode: 'live', codec: 'vp9' });
       console.log('✅ RTC client created:', this.rtcEngine);
       console.log('🔍 RTC engine stored in this.rtcEngine:', !!this.rtcEngine);
-      
-      // Also set log level on the client instance
-      if (this.rtcEngine.setLogLevel) {
-        this.rtcEngine.setLogLevel(0);
-        console.log('🔍 RTC client log level set to DEBUG (0)');
-      }
-      
-      // Enable ALL Agora RTC logs for debugging - most verbose level
-      AgoraRTCInstance.setLogLevel(0); // 0 = DEBUG (most verbose)
-      AgoraRTCInstance.enableLogUpload(); // Enable log upload for debugging
-      console.log('🔍 Agora RTC logs enabled at DEBUG level (0) - most verbose');
-      console.log('🔍 Agora RTC log upload enabled');
-      
+       
       // Initialize Signaling Client (RTM) - RTM v2.x style (copied from working onboardingbot)
       // Generate unique UID to prevent conflicts - use timestamp + random + process ID
       const clientUid = uid || Date.now() + Math.floor(Math.random() * 10000) + Math.floor(Math.random() * 1000);
@@ -198,16 +192,16 @@ class AgoraService {
       
       // Login to RTM - this is required for product functionality
       console.log('🔍 Logging into RTM...');
-      console.log('🔍 RTM client connection state before login:', this.rtmClient.connectionState);
+      console.log('🔍 RTM client connection state before login:', this.rtmClient.rtmImpl.connectionState);
       
       // Check if already logged in to prevent login loops
-      if (this.rtmClient.connectionState === 'CONNECTED') {
+      if (this.rtmClient.rtmImpl.connectionState === 'CONNECTED') {
         console.log('✅ RTM already logged in, skipping login');
       } else {
         await this.rtmClient.login({token: null});
         console.log('✅ RTM login successful');
       }
-      console.log('🔍 RTM client connection state after login:', this.rtmClient.connectionState);
+      console.log('🔍 RTM client connection state after login:', this.rtmClient.rtmImpl.connectionState);
       
       // Initialize ConversationalAIAPI using the proper init method
       this.conversationalAI = ConversationalAIAPI.init({
