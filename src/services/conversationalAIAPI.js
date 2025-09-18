@@ -133,6 +133,11 @@ class CovSubRenderController extends EventHelper {
         this.pts = pts;
     }
 
+    run() {
+        // Initialize the controller
+        console.log('CovSubRenderController started');
+    }
+
     cleanup() {
         this.chatHistory = [];
         this.pts = 0;
