@@ -157,10 +157,7 @@ export default function HostPage() {
 
       // Join RTC channel as host
       console.log('🏠 HostPage: About to call joinAsHost with:', { channelName, uid });
-      console.log('🏠 HostPage: agoraService.currentChannelName before joinAsHost:', agoraService.currentChannelName);
       const rtcJoined = await agoraService.joinAsHost(channelName, uid);
-      console.log('🏠 HostPage: joinAsHost result:', rtcJoined);
-      console.log('🏠 HostPage: agoraService.currentChannelName after joinAsHost:', agoraService.currentChannelName);
       if (!rtcJoined) {
         throw new Error('Failed to join RTC channel as host');
       }

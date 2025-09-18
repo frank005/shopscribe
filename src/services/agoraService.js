@@ -150,14 +150,11 @@ class AgoraService {
       // Initialize RTC Engine - using live mode for host/audience roles with VP9 codec
       this.rtcEngine = AgoraRTCInstance.createClient({ mode: 'live', codec: 'vp9' });
       console.log('✅ RTC client created:', this.rtcEngine);
-      console.log('🔍 RTC engine stored in this.rtcEngine:', !!this.rtcEngine);
        
       // Initialize Signaling Client (RTM) - RTM v2.x style (copied from working onboardingbot)
       // Generate unique UID to prevent conflicts - use timestamp + random + process ID
       const clientUid = uid || Date.now() + Math.floor(Math.random() * 10000) + Math.floor(Math.random() * 1000);
       console.log('🔍 Creating RTM client with UID:', clientUid);
-      console.log('🔍 RTM UID type:', typeof clientUid);
-      console.log('🔍 RTM UID generation timestamp:', Date.now());
       
       this.rtmClient = new AgoraRTMInstance(appId.trim(), clientUid.toString(), {
         token: null, // No token for testing
@@ -165,35 +162,15 @@ class AgoraService {
         logLevel: 'INFO' // Use INFO level like onboardingbot
       });
       
-      console.log('✅ RTM v2.x client created:', this.rtmClient);
-      console.log('🔍 RTM client UID after creation:', this.rtmClient.userId);
-      console.log('🔍 RTM client rtmImpl UID:', this.rtmClient.rtmImpl?.userId);
-      console.log('🔍 RTM client methods:', Object.getOwnPropertyNames(this.rtmClient));
-      console.log('🔍 RTM client prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.rtmClient)));
-      console.log('🔍 RTM client createChannel:', typeof this.rtmClient.createChannel);
-      console.log('🔍 RTM client rtmImpl:', this.rtmClient.rtmImpl);
-      console.log('🔍 RTM client rtmImpl methods:', this.rtmClient.rtmImpl ? Object.getOwnPropertyNames(this.rtmClient.rtmImpl) : 'undefined');
-      
-      // Check available RTM methods
-      console.log('🔍 Available RTM client methods:', Object.getOwnPropertyNames(this.rtmClient));
-      console.log('🔍 Available rtmImpl methods:', this.rtmClient.rtmImpl ? Object.getOwnPropertyNames(this.rtmClient.rtmImpl) : 'undefined');
-      
-      // Look for channel-related methods
-      const channelMethods = Object.getOwnPropertyNames(this.rtmClient).filter(method => 
-        method.toLowerCase().includes('channel') || method.toLowerCase().includes('join')
-      );
-      console.log('🔍 Channel-related methods on RTM client:', channelMethods);
-      
+      console.log('✅ RTM v2.x client created:');
+    
       const rtmImplChannelMethods = this.rtmClient.rtmImpl ? 
         Object.getOwnPropertyNames(this.rtmClient.rtmImpl).filter(method => 
           method.toLowerCase().includes('channel') || method.toLowerCase().includes('join')
         ) : [];
-      console.log('🔍 Channel-related methods on rtmImpl:', rtmImplChannelMethods);
       
       // Login to RTM - this is required for product functionality
       console.log('🔍 Logging into RTM...');
-      console.log('🔍 RTM client connection state before login:', this.rtmClient.rtmImpl.connectionState);
-      
       // Check if already logged in to prevent login loops
       if (this.rtmClient.rtmImpl.connectionState === 'CONNECTED') {
         console.log('✅ RTM already logged in, skipping login');
@@ -211,9 +188,6 @@ class AgoraService {
         enableLog: true,
         expectedAgentId: '8888'
       });
-      console.log('✅ ConversationalAIAPI initialized successfully');
-      
-      console.log('✅ RTC, Signaling, and ConversationalAI clients initialized');
       console.log('🔍 InitializeClients: Final state - RTC Engine:', !!this.rtcEngine, 'RTM Client:', !!this.rtmClient);
       return true;
     } catch (error) {
@@ -223,7 +197,6 @@ class AgoraService {
     } finally {
       // Clear initialization flag
       this._initializing = false;
-      console.log('🔍 InitializeClients: Cleared _initializing flag');
     }
   }
 
@@ -243,14 +216,11 @@ class AgoraService {
       const appId = window.REACT_APP_AGORA_APP_ID || process.env.REACT_APP_AGORA_APP_ID || 'your_agora_app_id';
       
       console.log('🏠 Joining as host to channel:', channelName, 'with UID:', uid);
-      console.log('🏠 RTC client mode:', this.rtcEngine.mode);
       
       // Store the channel name for later use (critical for endStream)
       this.currentChannelName = channelName;
-      console.log('🏠 Stored current channel name:', this.currentChannelName);
-      
-      // Attach listeners BEFORE joining to catch early events
-      console.log('🏠 Setting up RTC event listeners (pre-join)...');
+
+      //Setup RTC event listeners
       this.setupRTCEventListeners();
       
       // Join channel first
@@ -258,10 +228,8 @@ class AgoraService {
       console.log(`✅ Joined RTC channel: ${channelName} with UID: ${uid}`);
       
       // Set client role to host
-      console.log('🏠 Setting client role to host...');
       await this.rtcEngine.setClientRole('host');
       console.log('✅ Set client role to host');
-      console.log('🏠 Current client role:', this.rtcEngine.role);
       
       return true;
     } catch (error) {
@@ -366,19 +334,9 @@ class AgoraService {
 
     try {
       console.log('📡 Joining RTM channel:', channelName);
-      
-      // RTM v2.x doesn't use createChannel - it uses direct channel joining
-      // The ConversationalAIAPI handles the RTM channel joining internally
-      console.log('📡 RTM v2.x - ConversationalAIAPI handles channel joining internally');
-      console.log(`✅ RTM channel ${channelName} will be handled by ConversationalAIAPI`);
-      
+
       // Store the channel name for reference
-      this.rtmChannel = { channelName };
-      console.log('📡 Stored RTM channel name in this.rtmChannel');
-      
-      // RTM v2.x event listeners are handled by ConversationalAIAPI
-      console.log('📡 RTM event listeners will be handled by ConversationalAIAPI');
-      
+      this.rtmChannel = { channelName };     
       return this.rtmChannel;
     } catch (error) {
       console.error('❌ Error joining Signaling channel:', error);
@@ -615,12 +573,6 @@ class AgoraService {
       console.log('❌ setupRTCEventListeners: No RTC engine available');
       return;
     }
-
-    console.log('🔧 Setting up RTC event listeners on engine:', this.rtcEngine);
-    console.log('🔧 RTC engine connection state:', this.rtcEngine.connectionState);
-    console.log('🔧 RTC engine role:', this.rtcEngine.role);
-    console.log('🔧 RTC engine events:', this.rtcEngine._events ? Object.keys(this.rtcEngine._events) : 'no events');
-    
     // Start video element monitoring
     this.startVideoElementMonitoring();
 
