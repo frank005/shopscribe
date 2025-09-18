@@ -494,8 +494,7 @@ class AgoraService {
   // Check video elements status
   checkVideoElements() {
     const remotePlayerElement = document.getElementById('remote-player');
-    const localPlayerElement = document.getElementById('local-player');
-    
+ 
     if (remotePlayerElement) {
       const remoteVideos = remotePlayerElement.querySelectorAll('video');
       const remoteCanvases = remotePlayerElement.querySelectorAll('canvas');
@@ -508,25 +507,9 @@ class AgoraService {
           agoraElements: remoteAgoraElements.length,
           total: remotePlayerElement.children.length
         });
+        clearInterval(this.videoElementMonitor);
       } else if (this.remoteVideoTrack && this.remoteVideoTrack.isPlaying) {
         console.warn('⚠️ Remote video track is playing but no video elements found in DOM');
-      }
-    }
-    
-    if (localPlayerElement) {
-      const localVideos = localPlayerElement.querySelectorAll('video');
-      const localCanvases = localPlayerElement.querySelectorAll('canvas');
-      const localAgoraElements = localPlayerElement.querySelectorAll('.agora_video_player');
-      
-      if (localVideos.length > 0 || localCanvases.length > 0 || localAgoraElements.length > 0) {
-        //console.log('🔍 Local video elements found:', {
-        //  videos: localVideos.length,
-        //  canvases: localCanvases.length,
-        //  agoraElements: localAgoraElements.length,
-        //  total: localPlayerElement.children.length
-        //});
-      } else if (this.localVideoTrack && this.localVideoTrack.isPlaying) {
-        console.warn('⚠️ Local video track is playing but no video elements found in DOM');
       }
     }
   }
