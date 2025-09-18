@@ -230,9 +230,10 @@ export default function HostPage() {
           if (latestMessage && latestMessage.data) {
             const text = latestMessage.data.text || '';
             console.log('🎯 Message text:', text);
-            
-            // Parse product tags
-            const productData = parseProductTags(text);
+      
+            if (latestMessage.data.speaker.includes('Assistant')) {
+              // Parse product tags
+              const productData = parseProductTags(text);
             console.log('🎯 Parsed product data:', productData);
             //console.log('🎯 Is product displayable?', isProductDisplayable(productData));
             if (isProductDisplayable(productData)) {
@@ -250,12 +251,13 @@ export default function HostPage() {
                 setProductHistory(localHistory);
               });
             } else {
-              //console.log('🎯 Product not displayable, skipping overlay');
+              console.log('🎯 Product not displayable, skipping overlay');
             }
-            
-            // Update transcript with cleaned text (strip tags for display)
+            } else {
+            // Update transcript with cleaned text (strip tags for display) for User text
             const cleanedText = stripTags(text);
             setTranscript(cleanedText);
+            };            
           }
         }
       });
