@@ -155,7 +155,11 @@ class CovSubRenderController extends EventHelper {
             if (message.object === 'assistant.transcript' || message.object === 'assistant.transcription' || message.object === 'user.transcription') {
                 // Handle transcription messages
                 //console.log('Found transcription message:', message.object);
-                this.handleTranscriptionMessage(message, context);
+                if (message.turn_status === 1 || message.final)  {                   
+                    this.handleTranscriptionMessage(message, context);
+                } else {
+                    return;
+                };
             } else if (message.object === 'message.info' || message.object === 'message.error') {
                 // Handle image upload responses
                 //console.log('✅ Found image message response:', message);
