@@ -391,7 +391,7 @@ class AgoraService {
     console.log('🔗 Setting up onAgentResponse callback');
     // Set up the event listener on the CovSubRenderController instance, not the main ConversationalAIAPI instance
     this.conversationalAI.covSubRenderController.on('transcription-updated', callback);
-    console.log('🔗 Event listener registered for transcription-updated');
+    //console.log('🔗 Event listener registered for transcription-updated');
   }
 
   // Subscribe to user transcriptions
@@ -593,12 +593,12 @@ class AgoraService {
     // Handle user published
     this.rtcEngine.on('user-published', async (user, mediaType) => {
       console.log('👤 [AUD] user-published', user.uid, mediaType);
-      console.log('👤 User object:', user);
-      console.log('👤 Media type:', mediaType);
-      console.log('👤 Current client role:', this.rtcEngine.role);
-      console.log('👤 RTC connection state:', this.rtcEngine.connectionState);
-      console.log('👤 User video track:', user.videoTrack);
-      console.log('👤 User audio track:', user.audioTrack);
+      //console.log('👤 User object:', user);
+      //console.log('👤 Media type:', mediaType);
+      //console.log('👤 Current client role:', this.rtcEngine.role);
+      //console.log('👤 RTC connection state:', this.rtcEngine.connectionState);
+      //console.log('👤 User video track:', user.videoTrack);
+      //console.log('👤 User audio track:', user.audioTrack);
       
       // Store the remote user for potential control
       this.remoteUser = user;
@@ -973,41 +973,41 @@ class AgoraService {
 
   // Publish local audio
   async publishAudio() {
-    console.log('🎵 publishAudio called, checking RTC engine...');
-    console.log('🎵 this.rtcEngine:', this.rtcEngine);
-    console.log('🎵 RTC engine exists:', !!this.rtcEngine);
+    //console.log('🎵 publishAudio called, checking RTC engine...');
+    //console.log('🎵 this.rtcEngine:', this.rtcEngine);
+    //console.log('🎵 RTC engine exists:', !!this.rtcEngine);
     if (!this.rtcEngine) {
       console.error('❌ RTC Engine not initialized in publishAudio');
       throw new Error('RTC Engine not initialized');
     }
 
     try {
-      console.log('🎵 Creating microphone audio track...');
+      //console.log('🎵 Creating microphone audio track...');
       this.localAudioTrack = await this.agoraRTC.createMicrophoneAudioTrack();
       console.log('🎵 Microphone audio track created:', this.localAudioTrack);
       
       console.log('🎵 Publishing audio track to RTC engine...');
-      console.log('🎵 RTC engine state before publish:', {
-        connectionState: this.rtcEngine.connectionState,
-        role: this.rtcEngine.role,
-        mode: this.rtcEngine.mode
-      });
-      console.log('🎵 Audio track details:', {
-        trackId: this.localAudioTrack._trackId,
-        enabled: this.localAudioTrack.enabled,
-        muted: this.localAudioTrack.muted
-      });
+      //console.log('🎵 RTC engine state before publish:', {
+      //  connectionState: this.rtcEngine.connectionState,
+      //  role: this.rtcEngine.role,
+      //  mode: this.rtcEngine.mode
+      //});
+      //console.log('🎵 Audio track details:', {
+      //  trackId: this.localAudioTrack._trackId,
+      //  enabled: this.localAudioTrack.enabled,
+      //  muted: this.localAudioTrack.muted
+      //});
       
-      console.log('🎵 About to call rtcEngine.publish() with track:', this.localAudioTrack);
+      //console.log('🎵 About to call rtcEngine.publish() with track:', this.localAudioTrack);
       const publishResult = await this.rtcEngine.publish(this.localAudioTrack);
-      console.log('🎵 rtcEngine.publish() result:', publishResult);
+      //console.log('🎵 rtcEngine.publish() result:', publishResult);
       
       console.log('✅ Published local audio track to RTC engine');
-      console.log('🎵 RTC engine state after publish:', {
-        connectionState: this.rtcEngine.connectionState,
-        role: this.rtcEngine.role,
-        mode: this.rtcEngine.mode
-      });
+      //console.log('🎵 RTC engine state after publish:', {
+      //  connectionState: this.rtcEngine.connectionState,
+      //  role: this.rtcEngine.role,
+      //  mode: this.rtcEngine.mode
+      //});
       
       return true;
     } catch (error) {
@@ -1083,32 +1083,32 @@ class AgoraService {
     }
 
     try {
-      console.log('🎥 Creating camera video track...');
+      //console.log('🎥 Creating camera video track...');
       this.localVideoTrack = await this.createCameraVideoTrack();
       console.log('🎥 Camera video track created:', this.localVideoTrack);
       
       console.log('🎥 Publishing video track to RTC engine...');
-      console.log('🎥 RTC engine state before publish:', {
-        connectionState: this.rtcEngine.connectionState,
-        role: this.rtcEngine.role,
-        mode: this.rtcEngine.mode
-      });
-      console.log('🎥 Video track details:', {
-        trackId: this.localVideoTrack._trackId,
-        enabled: this.localVideoTrack.enabled,
-        muted: this.localVideoTrack.muted
-      });
+      //console.log('🎥 RTC engine state before publish:', {
+      //  connectionState: this.rtcEngine.connectionState,
+      //  role: this.rtcEngine.role,
+      //  mode: this.rtcEngine.mode
+      //});
+      //console.log('🎥 Video track details:', {
+      //  trackId: this.localVideoTrack._trackId,
+      //  enabled: this.localVideoTrack.enabled,
+      //  muted: this.localVideoTrack.muted
+      //});
       
-      console.log('🎥 About to call rtcEngine.publish() with track:', this.localVideoTrack);
+      //console.log('🎥 About to call rtcEngine.publish() with track:', this.localVideoTrack);
       const publishResult = await this.rtcEngine.publish(this.localVideoTrack);
-      console.log('🎥 rtcEngine.publish() result:', publishResult);
+      //console.log('🎥 rtcEngine.publish() result:', publishResult);
       
-      console.log('✅ [HOST] published audio+video, codec=vp9');
-      console.log('🎥 RTC engine state after publish:', {
-        connectionState: this.rtcEngine.connectionState,
-        role: this.rtcEngine.role,
-        mode: this.rtcEngine.mode
-      });
+      //console.log('✅ [HOST] published audio+video, codec=vp9');
+      //console.log('🎥 RTC engine state after publish:', {
+      //  connectionState: this.rtcEngine.connectionState,
+      //  role: this.rtcEngine.role,
+      //  mode: this.rtcEngine.mode
+      //});
       
       // Enhanced local video element creation with retry mechanism
       const ensureLocalVideoElement = async (attempt = 1, maxAttempts = 5) => {
@@ -1323,13 +1323,13 @@ class AgoraService {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`🔗 Creating real Agora agent via REST API... (attempt ${attempt}/${maxRetries})`);
-        console.log('🔗 Channel:', channelName);
+        //console.log('🔗 Channel:', channelName);
         console.log('🔗 Agent UID:', agentUid);
-        console.log('🔗 Client UID:', clientUid);
-        console.log('🔗 Profile Context:', profileContext);
+        //console.log('🔗 Client UID:', clientUid);
+        //console.log('🔗 Profile Context:', profileContext);
         
         // Call Netlify Function to create Agora agent
-        console.log('🔗 Creating Agora agent via Netlify Function...');
+        //console.log('🔗 Creating Agora agent via Netlify Function...');
         
         const response = await fetch('/.netlify/functions/agora-agents', {
           method: 'POST',
@@ -1351,7 +1351,7 @@ class AgoraService {
         }
 
         const data = await response.json();
-        console.log('✅ Agora agent created via Netlify Function:', data);
+        //console.log('✅ Agora agent created via Netlify Function:', data);
         
         // Check if the response has the expected structure
         if (!data.success || !data.data) {
@@ -1786,31 +1786,6 @@ class AgoraService {
       channelName: this.currentChannelName,
       isConnected: this.isConnected
     };
-  }
-
-  // Get Agora configuration status
-  async getConfigStatus() {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/agora/config`);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get config status');
-      }
-
-      const data = await response.json();
-      return data.data;
-    } catch (error) {
-      console.error('❌ Error getting config status:', error);
-      throw error;
-    }
-  }
-
-  // Generate onboarding prompt - use the comprehensive prompt from agora-agents.mjs
-  generateOnboardingPrompt(currentTopic, completedTopics) {
-    // Return null to let the Netlify function use its own comprehensive prompt
-    // The Netlify function has the complete prompt with all marker rules
-    return null;
   }
 
   // Set custom channel name for host

@@ -29,13 +29,13 @@ class ProductHistoryRTMService {
    * @param {Object} rtmClient - Agora RTM client instance
    * @param {string} channelName - Channel name
    */
-  async initialize(rtmClient, channelName) {
+  async initialize(rtmClient, channelName, role = 'audience') {
     console.log("🔄 ProductHistoryRTM: Initializing for channel:", channelName);
-    console.log("🔄 ProductHistoryRTM: RTM client provided:", !!rtmClient);
-    console.log(
-      "🔄 ProductHistoryRTM: RTM client connection state:",
-      rtmClient?.connectionState,
-    );
+    //console.log("🔄 ProductHistoryRTM: RTM client provided:", !!rtmClient);
+    //console.log(
+    //  "🔄 ProductHistoryRTM: RTM client connection state:",
+    //  rtmClient?.connectionState,
+    //);
 
     this.rtmClient = rtmClient;
     this.channelName = channelName;
@@ -45,7 +45,7 @@ class ProductHistoryRTMService {
     this.setupStorageListener();
 
     // Load initial product history from RTM
-    console.log("🔄 ProductHistoryRTM: About to call loadFromRTM...");
+    //console.log("🔄 ProductHistoryRTM: About to call loadFromRTM...");
     const loadedProducts = await this.loadFromRTM();
     console.log(
       "🔄 ProductHistoryRTM: loadFromRTM completed, loaded products:",
@@ -53,7 +53,12 @@ class ProductHistoryRTMService {
     );
 
     // Set up periodic retry for loading data (in case host hasn't saved yet)
-    this.setupPeriodicRetry();
+    if (loadedProducts?.length > 0) {
+      return loadedProducts;
+    }
+    if (role === 'audience') {
+      this.setupPeriodicRetry();
+    };
     return loadedProducts;
   }
 
@@ -270,37 +275,37 @@ class ProductHistoryRTMService {
         "📦 ProductHistoryRTM: Loading product history from RTM for channel:",
         this.channelName,
       );
-      console.log(
-        "📦 ProductHistoryRTM: RTM client available:",
-        !!this.rtmClient,
-      );
-      console.log(
-        "📦 ProductHistoryRTM: RTM client connection state:",
-        this.rtmClient?.connectionState,
-      );
+      //console.log(
+      //  "📦 ProductHistoryRTM: RTM client available:",
+      //  !!this.rtmClient,
+      //);
+      //console.log(
+      //  "📦 ProductHistoryRTM: RTM client connection state:",
+      //  this.rtmClient?.connectionState,
+      //);
 
-      console.log("📦 ProductHistoryRTM: About to call getChannelMetadata...");
+      //console.log("📦 ProductHistoryRTM: About to call getChannelMetadata...");
 
       const result = await this.rtmClient.storage.getChannelMetadata(
         this.channelName,
         "MESSAGE",
       );
 
-      console.log("📦 ProductHistoryRTM: RTM metadata result:", result);
+      //console.log("📦 ProductHistoryRTM: RTM metadata result:", result);
       console.log(
         "📦 ProductHistoryRTM: Result metadata keys:",
         result?.metadata ? Object.keys(result.metadata) : "no metadata",
       );
-      console.log(
-        "📦 ProductHistoryRTM: Looking for key:",
-        PRODUCT_HISTORY_KEY,
-      );
+      //console.log(
+      //  "📦 ProductHistoryRTM: Looking for key:",
+      //  PRODUCT_HISTORY_KEY,
+      //);
 
       const productHistoryData = result?.metadata?.[PRODUCT_HISTORY_KEY]?.value;
-      console.log(
-        "📦 ProductHistoryRTM: Product history data found:",
-        !!productHistoryData,
-      );
+      //console.log(
+      //  "📦 ProductHistoryRTM: Product history data found:",
+      //  !!productHistoryData,
+      //);
       console.log(
         "📦 ProductHistoryRTM: Product history data length:",
         productHistoryData?.length || 0,
@@ -308,12 +313,12 @@ class ProductHistoryRTMService {
 
       if (productHistoryData) {
         const products = JSON.parse(productHistoryData);
-        console.log(
-          "📦 ProductHistoryRTM: Successfully parsed",
-          products.length,
-          "products from RTM",
-        );
-        console.log("📦 ProductHistoryRTM: First product:", products[0]);
+        //console.log(
+        //  "📦 ProductHistoryRTM: Successfully parsed",
+        //  products.length,
+        //  "products from RTM",
+        //);
+        //console.log("📦 ProductHistoryRTM: First product:", products[0]);
 
         // Update local storage
         saveLocalHistory(this.channelName, products);
@@ -332,10 +337,10 @@ class ProductHistoryRTMService {
           "📦 ProductHistoryRTM: No product history found in RTM for key:",
           PRODUCT_HISTORY_KEY,
         );
-        console.log(
-          "📦 ProductHistoryRTM: Available metadata keys:",
-          result?.metadata ? Object.keys(result.metadata) : "none",
-        );
+        //console.log(
+        //  "📦 ProductHistoryRTM: Available metadata keys:",
+        //  result?.metadata ? Object.keys(result.metadata) : "none",
+        //);
         this.hasExistingMetadata = false;
         return [];
       }

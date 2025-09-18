@@ -167,7 +167,7 @@ export default function HostPage() {
 
       // Initialize RTM product history service
       try {
-        await productHistoryRTM.initialize(agoraService.rtmClient, channelName);
+        await productHistoryRTM.initialize(agoraService.rtmClient, channelName, agoraService.rtcEngine._config.role);
         console.log('🏠 HostPage: RTM product history service initialized');
       } catch (error) {
         console.error('🏠 HostPage: Failed to initialize RTM product history service:', error);

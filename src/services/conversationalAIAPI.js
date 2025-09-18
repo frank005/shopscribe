@@ -57,12 +57,12 @@ class EventHelper {
     }
 
     on(event, handler) {
-        console.log(`🔗 EventHelper.on: Registering handler for event: ${event}`);
+        //console.log(`🔗 EventHelper.on: Registering handler for event: ${event}`);
         if (!this.eventListeners.has(event)) {
             this.eventListeners.set(event, []);
         }
         this.eventListeners.get(event).push(handler);
-        console.log(`🔗 Total handlers for ${event}: ${this.eventListeners.get(event).length}`);
+        //console.log(`🔗 Total handlers for ${event}: ${this.eventListeners.get(event).length}`);
     }
 
     off(event, handler) {
@@ -131,11 +131,6 @@ class CovSubRenderController extends EventHelper {
 
     setPts(pts) {
         this.pts = pts;
-    }
-
-    run() {
-        // Initialize the controller
-        console.log('CovSubRenderController started');
     }
 
     cleanup() {
@@ -758,14 +753,14 @@ class ConversationalAIAPI extends EventHelper {
     bindRtcEvents() {
         if (this.rtcEngine) {
             this.rtcEngine.on(ERTCEvents.AUDIO_METADATA, this.handleRtcAudioMetadata.bind(this));
-            console.log('RTC events bound');
+            //console.log('RTC events bound');
         }
     }
 
     unbindRtcEvents() {
         if (this.rtcEngine) {
             this.rtcEngine.off(ERTCEvents.AUDIO_METADATA, this.handleRtcAudioMetadata.bind(this));
-            console.log('RTC events unbound');
+            //console.log('RTC events unbound');
         }
     }
 

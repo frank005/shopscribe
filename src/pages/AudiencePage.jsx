@@ -165,6 +165,7 @@ export default function AudiencePage() {
         const loadedProducts = await productHistoryRTM.initialize(
           agoraService.rtmClient,
           channelParam,
+          agoraService.rtcEngine._config.role
         );
         console.log("📚 AudiencePage: RTM product history service initialized");
         console.log(
@@ -585,6 +586,7 @@ export default function AudiencePage() {
         await productHistoryRTM.initialize(
           agoraService.rtmClient,
           newChannelName,
+          agoraService.rtcEngine._config.role
         );
         console.log(
           "📚 AudiencePage: RTM product history service initialized for new channel",
