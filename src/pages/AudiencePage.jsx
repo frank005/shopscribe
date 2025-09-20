@@ -26,6 +26,7 @@ export default function AudiencePage() {
   // State management
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [videoState, setVideoState] = useState('loading'); // 'loading', 'ready', 'muted'
   const [currentProduct, setCurrentProduct] = useState(null);
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [productHistory, setProductHistory] = useState([]);
@@ -138,7 +139,14 @@ export default function AudiencePage() {
         channelName,
         uid,
       });
-      const rtcJoined = await agoraService.joinAsAudience(channelParam, uid);
+      const rtcJoined = await agoraService.joinAsAudience(channelParam, uid, null, {
+        onHostPublished: () => {
+          setVideoState('ready');
+        },
+        onHostUnpublished: () => {
+          setVideoState('muted');
+        }
+      });
       console.log("🏠 AudiencePage: joinAsAudience result:", rtcJoined);
       if (!rtcJoined) {
         throw new Error("Failed to join RTC channel as audience");
@@ -398,12 +406,14 @@ export default function AudiencePage() {
         setWasBanned(true); // Mark as banned to prevent reconnection attempts
         setShowSessionEndedModal(true);
         setIsConnected(false);
+        setVideoState('left');
         toast.error("You have been disconnected from the stream", {
           id: "banned",
         });
       };
 
       setIsConnected(true);
+      setVideoState('muted');
       toast.success("Joined stream successfully!", { id: "join" });
 
       // Fetch host/viewer counts
@@ -441,6 +451,7 @@ export default function AudiencePage() {
       // Only disconnect when component is actually unmounting (leaving the page)
       if (isConnected) {
         agoraService.disconnect();
+        setVideoState('loading');
       }
     };
   }, []); // Empty dependency array - only runs on mount/unmount
@@ -460,6 +471,8 @@ export default function AudiencePage() {
     if (isConnected) {
       agoraService.disconnect();
       clearAllProductHistory();
+
+      setVideoState('left');
     }
     // Clean up RTM service
     productHistoryRTM.destroy().catch((error) => {
@@ -674,12 +687,14 @@ export default function AudiencePage() {
           setWasBanned(true);
           setShowSessionEndedModal(true);
           setIsConnected(false);
+          setVideoState('left');
           toast.error("You have been disconnected from the stream", {
             id: "banned",
           });
         });
 
       setIsConnected(true);
+      setVideoState('muted');
       setIsConnecting(false);
       toast.success("Switched to new stream!", { id: "switch" });
 
@@ -767,7 +782,7 @@ export default function AudiencePage() {
             {/* Video Stage */}
             <div className="lg:col-span-3">
               <div className="aspect-video">
-                <VideoStage showLoading={!isConnected} mode="remote">
+                <VideoStage videoState={videoState} mode="remote">
                   <ProductOverlay
                     product={currentProduct}
                     visible={overlayVisible}

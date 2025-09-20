@@ -7,13 +7,13 @@ import { motion } from 'framer-motion';
  * @param {React.ReactNode} props.children - Overlay components to render
  * @param {string} props.className - Additional CSS classes
  * @param {Object} props.videoProps - Props to pass to video element
- * @param {boolean} props.showLoading - Whether to show loading overlay
+ * @param {boolean} props.videoState - Whether to show loading overlay or muted cam
  */
 export default function VideoStage({ 
   children, 
   className = '', 
   videoProps = {},
-  showLoading = true,
+  videoState = 'loading', // 'loading', 'ready', 'muted'
   mode = 'both' // 'local', 'remote', or 'both'
 }) {
   // const videoRef = useRef(null);
@@ -63,8 +63,8 @@ export default function VideoStage({
         {children}
       </div>
       
-      {/* Loading state - only show when showLoading is true */}
-      {showLoading && (
+      {/* Loading state - only show when videoState is 'loading' */}
+      {videoState === 'loading' && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -73,6 +73,32 @@ export default function VideoStage({
           <div className="text-white text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2" />
             <p className="text-sm">Connecting to stream...</p>
+          </div>
+        </motion.div>
+      )}
+      
+      {/* Muted State - only show when videoState is 'muted' */}
+      {videoState === 'muted' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75"
+        >
+          <div className="text-white text-center">
+            <p className="text-sm">Camera Muted</p>
+          </div>
+        </motion.div>
+      )}
+
+            {/* Muted State - only show when videoState is 'muted' */}
+            {videoState === 'left' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75"
+        >
+          <div className="text-white text-center">
+            <p className="text-sm">Left Stream</p>
           </div>
         </motion.div>
       )}

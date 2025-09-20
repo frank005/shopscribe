@@ -26,7 +26,8 @@ export default function HostPage() {
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [productHistory, setProductHistory] = useState([]);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(false);
+  const [videoState, setVideoState] = useState('loading'); // 'loading', 'ready', 'muted'
   const [transcript, setTranscript] = useState('');
   const [channelName, setChannelName] = useState('');
   const [viewerCount, setViewerCount] = useState(0);
@@ -181,7 +182,12 @@ export default function HostPage() {
       setTimeout(async () => {
         try {
           console.log('🎥 Host: Starting media publishing...');
-          const mediaPublished = await agoraService.publishMedia();
+          const mediaPublished = await agoraService.publishMedia({
+            onVideoTrackReady: () => {
+              setVideoEnabled(true); //hide loading spinner
+              setVideoState('ready');
+            }
+          });
           console.log('🎥 Host: Media publishing result:', mediaPublished);
           if (!mediaPublished) {
             console.error('❌ Host: Failed to publish media');
@@ -338,6 +344,13 @@ export default function HostPage() {
       const newState = !videoEnabled;
       await agoraService.setVideoEnabled(newState);
       setVideoEnabled(newState);
+
+      // Update videoState based on new state
+      if (newState) {
+        setVideoState('ready');
+      } else {
+        setVideoState('muted');
+      };
       toast.success(newState ? 'Video enabled' : 'Video disabled');
     } catch (error) {
       toast.error('Failed to toggle video');
@@ -427,7 +440,8 @@ export default function HostPage() {
         setProductHistory([]);
         // Reset mic/video states to default
         setMicrophoneEnabled(true);
-        setVideoEnabled(true);
+        setVideoEnabled(false);
+        setVideoState('loading');
         // Reset stream info
         setHostCount(0);
         setViewerCount(0);
@@ -517,7 +531,7 @@ export default function HostPage() {
             {/* Video Stage */}
             <div className="lg:col-span-3">
               <div className="aspect-video mb-4">
-                <VideoStage showLoading={!videoEnabled} mode="local">
+                <VideoStage videoState={videoState} mode="local">
                   <ProductOverlay
                     product={currentProduct}
                     visible={overlayVisible}
