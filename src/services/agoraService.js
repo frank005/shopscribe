@@ -616,6 +616,7 @@ class AgoraService {
       } else if (mediaType === 'video') {
         console.log('📺 Subscribing to video...');
         if (options.onHostPublished && typeof options.onHostPublished === 'function') {
+          console.log('👤 setting videoState to ready');
           options.onHostPublished();
         }
         await this.rtcEngine.subscribe(user, 'video');
@@ -640,6 +641,7 @@ class AgoraService {
                 console.log('👤 setting videoState to ready');
                 if (options.onHostPublished && typeof options.onHostPublished === 'function') {
                   options.onHostPublished();
+                  console.log('👤 setting videoState to ready');
                 }
               }
             }
@@ -662,6 +664,7 @@ class AgoraService {
         console.log('👤 setting videoState to muted');
         if (options.onHostUnpublished && typeof options.onHostUnpublished === 'function') {
           options.onHostUnpublished();
+          console.log('👤 setting videoState to muted');
         }
         // Clean up the unique container
         const elId = `remote-player-${user.uid}`;
