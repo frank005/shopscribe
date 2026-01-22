@@ -413,7 +413,6 @@ export default function AudiencePage() {
       };
 
       setIsConnected(true);
-      setVideoState('muted');
       toast.success("Joined stream successfully!", { id: "join" });
 
       // Fetch host/viewer counts
