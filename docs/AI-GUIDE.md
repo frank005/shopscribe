@@ -55,55 +55,77 @@ Host Speech → Agora ASR → GPT-4o Agent → [[Tags]] → Product Overlay
 
 ### System Architecture Diagram
 
+```mermaid
+flowchart TB
+    subgraph Browser["HOST BROWSER"]
+        RTC["Agora RTC<br/>(audio/video)"]
+        RTM["Agora RTM<br/>(messaging)"]
+        React["React Components<br/>ProductOverlay, HostPage"]
+    end
+
+    subgraph Agora["AGORA CLOUD"]
+        RTCServer["RTC Server"]
+        RTMServer["RTM Server"]
+        ASR["ASR (ARES)"]
+        Agent["Conversational AI Agent<br/>• Receives ASR text<br/>• Calls OpenAI GPT-4o<br/>• Returns [[tags]] via RTM"]
+    end
+
+    subgraph Netlify["NETLIFY EDGE FUNCTIONS"]
+        AgentCreate["agora-agents.mjs<br/>Create agent"]
+        AgentChat["agora-agents-chat.mjs<br/>Send messages"]
+        AgentStop["agora-agents-stop.mjs<br/>Stop agent"]
+    end
+
+    subgraph OpenAI["OPENAI API"]
+        GPT["Model: gpt-4o<br/>Temperature: 0.2<br/>Output: [[key: value]] tags"]
+    end
+
+    RTC -->|"Audio"| RTCServer
+    RTM <-->|"Transcripts"| RTMServer
+    RTCServer --> ASR
+    ASR --> Agent
+    RTMServer <--> Agent
+    Agent -->|"API Calls"| Netlify
+    Netlify -->|"OpenAI API"| GPT
+    GPT -->|"[[tags]]"| Agent
+    RTM -->|"Product Data"| React
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              HOST BROWSER                                    │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐ │
-│  │   Agora RTC     │  │   Agora RTM     │  │      React Components       │ │
-│  │  (audio/video)  │  │  (messaging)    │  │  ProductOverlay, HostPage   │ │
-│  └────────┬────────┘  └────────┬────────┘  └──────────────┬──────────────┘ │
-└───────────┼────────────────────┼──────────────────────────┼─────────────────┘
-            │                    │                          │
-            │ Audio              │ Transcripts              │ Product Display
-            ▼                    ▼                          │
-┌─────────────────────────────────────────────────┐        │
-│                  AGORA CLOUD                     │        │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────┐ │        │
-│  │ RTC Server  │  │ RTM Server  │  │   ASR    │ │        │
-│  │             │  │             │  │  (ARES)  │ │        │
-│  └──────┬──────┘  └──────┬──────┘  └────┬─────┘ │        │
-│         │                │               │       │        │
-│         └────────┬───────┴───────────────┘       │        │
-│                  ▼                               │        │
-│  ┌───────────────────────────────────────────┐  │        │
-│  │      Conversational AI Agent              │  │        │
-│  │  - Receives ASR text                      │  │        │
-│  │  - Calls OpenAI GPT-4o                    │  │        │
-│  │  - Returns [[tags]] via RTM               │  │        │
-│  └───────────────────────────────────────────┘  │        │
-└────────────────────────┬────────────────────────┘        │
-                         │                                  │
-                         │ API Calls                        │
-                         ▼                                  │
-┌─────────────────────────────────────────────────┐        │
-│              NETLIFY EDGE FUNCTIONS              │        │
-│  ┌─────────────────────────────────────────────┐│        │
-│  │ agora-agents.mjs     - Create agent         ││        │
-│  │ agora-agents-chat.mjs - Send messages       ││        │
-│  │ agora-agents-stop.mjs - Stop agent          ││        │
-│  └──────────────────────┬──────────────────────┘│        │
-└─────────────────────────┼───────────────────────┘        │
-                          │                                 │
-                          │ OpenAI API                      │
-                          ▼                                 │
-┌─────────────────────────────────────────────────┐        │
-│               OPENAI API                         │        │
-│  ┌─────────────────────────────────────────────┐│        │
-│  │ Model: gpt-4o                               ││        │
-│  │ Temperature: 0.2                            ││        │
-│  │ Output: Structured [[key: value]] tags      ││────────┘
-│  └─────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────┘
+
+### Simplified Data Flow
+
+```mermaid
+flowchart LR
+    A["🎤 Host Speech"] --> B["Agora ASR"]
+    B --> C["GPT-4o Agent"]
+    C --> D["[[Tags]]"]
+    D --> E["RTM Channel"]
+    E --> F["parseProductTags()"]
+    F --> G["🛍️ Product Overlay"]
+```
+
+### Detailed Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Host
+    participant RTC as Agora RTC
+    participant ASR as ASR (ARES)
+    participant Agent as Conv AI Agent
+    participant GPT as GPT-4o
+    participant RTM as Agora RTM
+    participant UI as HostPage.jsx
+
+    Host->>RTC: Speaks about product
+    RTC->>ASR: Audio stream
+    ASR->>Agent: Transcribed text
+    Agent->>GPT: Process with prompt
+    GPT-->>Agent: [[product_name: ...]]<br/>[[category: ...]]<br/>[[theme: ...]]
+    Agent->>RTM: Send tags via RTM
+    RTM->>UI: RTM message event
+    UI->>UI: parseProductTags()
+    UI->>UI: isProductDisplayable()
+    UI->>UI: setCurrentProduct()
+    UI-->>Host: ProductOverlay displayed
 ```
 
 ### Component Responsibilities
@@ -587,31 +609,31 @@ export const ProductType = {
 
 ### Sequence Diagram
 
-```
-Host          Agora RTC     Agora Cloud      RTM           HostPage.jsx
- │                │              │             │                 │
- │──Speech───────►│              │             │                 │
- │                │──Audio──────►│             │                 │
- │                │              │             │                 │
- │                │         ┌────┴────┐        │                 │
- │                │         │  ASR    │        │                 │
- │                │         │ (ARES)  │        │                 │
- │                │         └────┬────┘        │                 │
- │                │              │             │                 │
- │                │         ┌────▼────┐        │                 │
- │                │         │ GPT-4o  │        │                 │
- │                │         │ Agent   │        │                 │
- │                │         └────┬────┘        │                 │
- │                │              │             │                 │
- │                │              │──[[tags]]──►│                 │
- │                │              │             │──RTM Message───►│
- │                │              │             │                 │
- │                │              │             │    parseProductTags()
- │                │              │             │    isProductDisplayable()
- │                │              │             │    setCurrentProduct()
- │                │              │             │                 │
- │◄───────────────┼──────────────┼─────────────┼──ProductOverlay─┤
- │                │              │             │                 │
+```mermaid
+sequenceDiagram
+    participant Host as 🎤 Host
+    participant RTC as Agora RTC
+    participant Cloud as Agora Cloud
+    participant ASR as ASR (ARES)
+    participant Agent as GPT-4o Agent
+    participant RTM as RTM Server
+    participant UI as HostPage.jsx
+    participant Overlay as ProductOverlay
+
+    Host->>RTC: Speech
+    RTC->>Cloud: Audio stream
+    Cloud->>ASR: Process audio
+    ASR->>Agent: Transcribed text
+    Agent->>Agent: Process with system prompt
+    Agent-->>RTM: [[product_name: ...]]<br/>[[category: ...]]<br/>[[theme: ...]]
+    RTM->>UI: RTM message event
+
+    Note over UI: parseProductTags()
+    Note over UI: isProductDisplayable()
+    Note over UI: setCurrentProduct()
+
+    UI->>Overlay: Render product card
+    Overlay-->>Host: 🛍️ Product displayed
 ```
 
 ### Complete Code Path Trace
