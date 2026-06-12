@@ -129,7 +129,7 @@ export default function AudiencePage() {
       console.log("🎯 Audience: Using UID:", uid);
 
       // Initialize clients
-      const initialized = await agoraService.initializeClients(appId, uid);
+      const initialized = await agoraService.initializeClients(appId, uid, channelName);
       if (!initialized) {
         throw new Error("Failed to initialize Agora clients");
       }

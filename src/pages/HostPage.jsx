@@ -151,7 +151,7 @@ export default function HostPage() {
       const uid = agoraService.customUID || Math.floor(Math.random() * 1000000) + 1000;
       
       // Initialize clients
-      const initialized = await agoraService.initializeClients(appId, uid);
+      const initialized = await agoraService.initializeClients(appId, uid, channelName);
       if (!initialized) {
         throw new Error('Failed to initialize Agora clients');
       }

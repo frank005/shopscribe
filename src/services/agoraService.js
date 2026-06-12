@@ -98,7 +98,7 @@ class AgoraService {
   }
 
   // Initialize RTC and Signaling clients
-  async initializeClients(appId, uid) {
+  async initializeClients(appId, uid, channelName = null) {
     console.log('🔍 InitializeClients: Starting initialization...');
     console.log('🔍 InitializeClients: RTC Engine exists:', !!this.rtcEngine);
     console.log('🔍 InitializeClients: RTM Client exists:', !!this.rtmClient);
@@ -156,26 +156,40 @@ class AgoraService {
       const clientUid = uid || Date.now() + Math.floor(Math.random() * 10000) + Math.floor(Math.random() * 1000);
       console.log('🔍 Creating RTM client with UID:', clientUid);
       
+      // Fetch a combined RTC+RTM token to use for BOTH RTM login and RTC join.
+      // Cache it on `this` so joinAsHost/joinAsAudience can reuse it without a second round-trip.
+      let combinedToken = null;
+      if (channelName) {
+        combinedToken = await this._fetchToken(channelName, clientUid);
+        if (combinedToken) {
+          this._cachedToken = { token: combinedToken, channelName, uid: clientUid.toString() };
+          console.log('✅ Fetched combined RTC+RTM token (length:', combinedToken.length, ')');
+        } else {
+          console.warn('⚠️ Token fetch returned null — falling back to tokenless mode (RTM login will fail if dynamic key is enabled)');
+        }
+      } else {
+        console.warn('⚠️ No channelName provided to initializeClients — cannot fetch combined token. RTM login will use null.');
+      }
+
       this.rtmClient = new AgoraRTMInstance(appId.trim(), clientUid.toString(), {
-        token: null, // No token for testing
         logUpload: false,
         logLevel: 'INFO' // Use INFO level like onboardingbot
       });
-      
+
       console.log('✅ RTM v2.x client created:');
-    
-      const rtmImplChannelMethods = this.rtmClient.rtmImpl ? 
-        Object.getOwnPropertyNames(this.rtmClient.rtmImpl).filter(method => 
+
+      const rtmImplChannelMethods = this.rtmClient.rtmImpl ?
+        Object.getOwnPropertyNames(this.rtmClient.rtmImpl).filter(method =>
           method.toLowerCase().includes('channel') || method.toLowerCase().includes('join')
         ) : [];
-      
+
       // Login to RTM - this is required for product functionality
-      console.log('🔍 Logging into RTM...');
+      console.log('🔍 Logging into RTM with token:', combinedToken ? 'present' : 'null (tokenless)');
       // Check if already logged in to prevent login loops
       if (this.rtmClient.rtmImpl.connectionState === 'CONNECTED') {
         console.log('✅ RTM already logged in, skipping login');
       } else {
-        await this.rtmClient.login({token: null});
+        await this.rtmClient.login({ token: combinedToken });
         console.log('✅ RTM login successful');
       }
       console.log('🔍 RTM client connection state after login:', this.rtmClient.rtmImpl.connectionState);
@@ -216,6 +230,16 @@ class AgoraService {
     }
   }
 
+  // Return a token for (channelName, uid). Reuses the cached combined token from
+  // initializeClients when it matches; otherwise fetches a fresh one.
+  async _getTokenFor(channelName, uid) {
+    const cached = this._cachedToken;
+    if (cached && cached.channelName === channelName && cached.uid === uid.toString()) {
+      return cached.token;
+    }
+    return await this._fetchToken(channelName, uid);
+  }
+
   // Join as host
   async joinAsHost(channelName, uid, token = null) {
     if (!this.rtcEngine) {
@@ -231,8 +255,8 @@ class AgoraService {
     try {
       const appId = window.REACT_APP_AGORA_APP_ID || process.env.REACT_APP_AGORA_APP_ID || 'your_agora_app_id';
 
-      // Fetch token from server if not provided
-      const rtcToken = token !== null ? token : await this._fetchToken(channelName, uid);
+      // Fetch token from server if not provided (reuses cached combined token when available)
+      const rtcToken = token !== null ? token : await this._getTokenFor(channelName, uid);
 
       console.log('🏠 Joining as host to channel:', channelName, 'with UID:', uid);
 
@@ -272,8 +296,8 @@ class AgoraService {
     try {
       const appId = window.REACT_APP_AGORA_APP_ID || process.env.REACT_APP_AGORA_APP_ID || 'your_agora_app_id';
 
-      // Fetch token from server if not provided
-      const rtcToken = token !== null ? token : await this._fetchToken(channelName, uid);
+      // Fetch token from server if not provided (reuses cached combined token when available)
+      const rtcToken = token !== null ? token : await this._getTokenFor(channelName, uid);
 
       console.log('👥 Joining as audience to channel:', channelName, 'with UID:', uid);
       //console.log('👥 RTC client mode:', this.rtcEngine.mode);
