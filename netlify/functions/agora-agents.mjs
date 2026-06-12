@@ -3,10 +3,9 @@
 
 import axios from 'axios';
 import { config } from 'dotenv';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-require('./utils/AccessToken2.js');
-const { RtcTokenBuilder, RtcRole } = require('./utils/RtcTokenBuilder2.js');
+// Static import lets esbuild bundle the CJS utils into the function.
+import rtcTokenBuilderModule from './utils/RtcTokenBuilder2.js';
+const { RtcTokenBuilder, RtcRole } = rtcTokenBuilderModule;
 
 // Load environment variables from .env file
 config();
