@@ -2,6 +2,34 @@
 
 A Whatnot-style live shopping web application powered by **Agora Web SDK** and **Agora Conversational AI**. Hosts can broadcast video/audio, describe products naturally, and trigger AI-generated product overlays. Audiences can discover and join live channels to watch streams with real-time product information.
 
+---
+
+## 🆕 Recent Changes
+
+### Agora Presets (ASR, LLM, TTS)
+The agent now supports **Agora-managed presets** so you no longer need vendor API keys. Set any of the following env vars to use presets:
+- `ASR_PRESET` — `deepgram_nova_2`, `deepgram_nova_3` (or leave blank for `ares`)
+- `LLM_PRESET` — `openai_gpt_4o_mini`, `openai_gpt_4_1_mini`, `openai_gpt_5_nano`, `openai_gpt_5_mini`
+- `TTS_PRESET` — `minimax_speech_2_6_turbo`, `minimax_speech_2_8_turbo`, `openai_tts_1` *(note: TTS is disabled in ShopScribe — the agent is transcript-only — but the preset is wired for future use)*
+
+When a preset is set, the corresponding API key (`OPENAI_API_KEY`, `MICROSOFT_TTS_API_KEY`) is **not** needed. Leaving a preset blank falls back to the original env-var key mode.
+
+Vendor-specific preset params:
+- MiniMax: `TTS_MINIMAX_VOICE_ID`, `TTS_MINIMAX_SAMPLE_RATE`
+- OpenAI TTS: `TTS_OPENAI_VOICE`, `TTS_OPENAI_SPEED`
+- LLM: `LLM_TEMPERATURE`, `LLM_MAX_TOKENS`, `LLM_MAX_HISTORY` (apply in both preset and key mode)
+
+### Token Authentication
+Added support for App-Certificate-based RTC tokens:
+- New env var `AGORA_APP_CERTIFICATE` (or legacy `AGORA_CERTIFICATE`, both supported) enables token mode
+- New endpoint `/api/token` (Netlify function `token.mjs`) returns combined RTC+RTM tokens for clients
+- Agent token is generated server-side in `agora-agents.mjs`
+- Client-side `joinAsHost` / `joinAsAudience` now auto-fetch tokens before joining
+- If `AGORA_APP_CERTIFICATE` is not set, falls back to tokenless mode (App ID only)
+
+---
+
+
 ## Features
 
 - **Host Interface**: Broadcast video/audio, describe products naturally, control product overlays

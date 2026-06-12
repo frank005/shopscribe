@@ -200,6 +200,22 @@ class AgoraService {
     }
   }
 
+  // Fetch token from server
+  async _fetchToken(channelName, uid) {
+    try {
+      const resp = await fetch('/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelName, uid: uid.toString() })
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      return data.token || null;
+    } catch {
+      return null;
+    }
+  }
+
   // Join as host
   async joinAsHost(channelName, uid, token = null) {
     if (!this.rtcEngine) {
@@ -214,17 +230,20 @@ class AgoraService {
 
     try {
       const appId = window.REACT_APP_AGORA_APP_ID || process.env.REACT_APP_AGORA_APP_ID || 'your_agora_app_id';
-      
+
+      // Fetch token from server if not provided
+      const rtcToken = token !== null ? token : await this._fetchToken(channelName, uid);
+
       console.log('🏠 Joining as host to channel:', channelName, 'with UID:', uid);
-      
+
       // Store the channel name for later use (critical for endStream)
       this.currentChannelName = channelName;
 
       //Setup RTC event listeners
       this.setupRTCEventListeners();
-      
+
       // Join channel first
-      await this.rtcEngine.join(appId, channelName, token || null, uid);
+      await this.rtcEngine.join(appId, channelName, rtcToken, uid);
       console.log(`✅ Joined RTC channel: ${channelName} with UID: ${uid}`);
       
       // Set client role to host
@@ -252,21 +271,24 @@ class AgoraService {
 
     try {
       const appId = window.REACT_APP_AGORA_APP_ID || process.env.REACT_APP_AGORA_APP_ID || 'your_agora_app_id';
-      
+
+      // Fetch token from server if not provided
+      const rtcToken = token !== null ? token : await this._fetchToken(channelName, uid);
+
       console.log('👥 Joining as audience to channel:', channelName, 'with UID:', uid);
       //console.log('👥 RTC client mode:', this.rtcEngine.mode);
-      
+
       // Store the channel name for later use
       this.currentChannelName = channelName;
       //console.log('👥 Stored current channel name:', this.currentChannelName);
-      
+
         // Attach listeners BEFORE joining to catch early events
         console.log('👥 Setting up RTC event listeners (pre-join)...');
         this.setupRTCEventListeners(options);
-      
+
       // Join channel first
       //console.log('👥' + appId + ' ' + channelName + ' ' + token + ' ' + uid);
-      await this.rtcEngine.join(appId, channelName, token || null, uid);
+      await this.rtcEngine.join(appId, channelName, rtcToken, uid);
       console.log(`✅ Joined RTC channel: ${channelName} with UID: ${uid}`);
       
       // Set client role to audience

@@ -176,9 +176,51 @@ llm: {
 | `max_history` | `10` | Maintains context for multi-turn product descriptions |
 | `greeting_message` | `""` | Empty to prevent agent from speaking |
 
+### TTS Configuration and skip_patterns (Critical Innovation)
+
+Even though TTS is disabled (`enabled: false`), the TTS configuration includes **`skip_patterns`**, which is a key architectural decision for future extensibility:
+
+```javascript
+tts: {
+  enabled: false, // Disable TTS to prevent agent from speaking
+  vendor: 'microsoft',
+  skip_patterns: [3, 4], // Agora skip_patterns: 3 = (), 4 = []
+  params: {
+    key: process.env.MICROSOFT_TTS_API_KEY || '',
+    region: process.env.MICROSOFT_TTS_REGION || 'eastus',
+    voice_name: 'en-US-EvelynMultilingualNeural',
+    sample_rate: 24000,
+    speed: 1.3
+  }
+}
+```
+
+**Why skip_patterns matters:**
+- **Pattern 4 (`[]`)**: If TTS were enabled, this would skip speaking double-square brackets, allowing tags to be silent in audio while remaining in text
+- **Pattern 3 (`()`)**: Skips parentheses, useful for internal notes
+- **Dual-purpose tags**: Tags serve both as machine-readable metadata AND can be hidden from audio output
+- **Future-proofing**: If TTS is enabled later, tags won't be spoken aloud, maintaining clean audio experience
+
+**The Core Innovation:**
+1. AI outputs tags like `[[product_name: iPhone 15 Pro]]` in its response
+2. Tags are **parsed** from text using regex (`parseProductTags()`) to extract structured data
+3. Tags are **stripped** from display text using `stripTags()` for clean captions
+4. Parsed product data is **stored** in RTM channel metadata for persistence and database export
+5. If TTS were enabled, `skip_patterns: [4]` ensures brackets are never spoken
+
+This architecture allows the same AI output to serve multiple purposes:
+- ✅ **Machine parsing** - Extract structured product data
+- ✅ **Clean display** - Strip tags from user-facing text
+- ✅ **Data persistence** - Store in RTM for cross-session access
+- ✅ **Database export** - Structured JSON ready for database insertion
+
 ### System Prompt Structure
 
-The prompt is defined in `src/utils/shopscribe-prompt.js`:
+The system prompt is located in **two places** with a fallback mechanism:
+
+#### Primary Location: `src/utils/shopscribe-prompt.js`
+
+This is the **main source of truth** for the system prompt. It exports `SHOPSCRIBE_PROMPT` which is typically passed to the agent creation API:
 
 ```javascript
 export const SHOPSCRIBE_PROMPT = `
@@ -226,6 +268,23 @@ CONFIDENT ENRICHMENT
 - Safe category inference: infer [[category]] when obvious (smartphone, apparel, trading card).
 `;
 ```
+
+#### Fallback Location: `netlify/functions/agora-agents.mjs`
+
+If no prompt is provided in the request body, the agent creation function uses a **fallback prompt** defined inline (lines 58-150). The logic in `agora-agents.mjs` is:
+
+```javascript
+let systemPrompt = prompt || `You are ShopScribe, an AI agent...`; // Fallback prompt
+```
+
+**How it works:**
+1. The frontend typically passes `SHOPSCRIBE_PROMPT` from `shopscribe-prompt.js` in the request body
+2. If `prompt` is `null` or `undefined`, the function falls back to the inline prompt in `agora-agents.mjs`
+3. The fallback prompt has similar content but may differ slightly in wording
+
+**To edit the system prompt:**
+- **Primary method**: Edit `src/utils/shopscribe-prompt.js` (this is the recommended location)
+- **Fallback**: The inline prompt in `agora-agents.mjs` is only used if no prompt is provided
 
 ### Prompt Engineering Best Practices Applied
 
@@ -311,9 +370,11 @@ POST /.netlify/functions/agora-agents
   channelName: "stream_123456_abc",  // RTC channel name
   agentUid: "8888",                   // Standard agent UID
   clientUid: 12345,                   // Host's UID
-  prompt: SHOPSCRIBE_PROMPT           // System prompt (optional, has default)
+  prompt: SHOPSCRIBE_PROMPT           // System prompt (optional, has fallback in agora-agents.mjs)
 }
 ```
+
+**Note:** The `prompt` field is optional. If not provided, the function uses a fallback prompt defined inline in `agora-agents.mjs` (lines 58-150). However, the recommended approach is to always pass `SHOPSCRIBE_PROMPT` from `src/utils/shopscribe-prompt.js` to ensure consistency.
 
 ### Agent Configuration Object
 
@@ -372,6 +433,7 @@ const agentConfig = {
 | `data_channel` | `"rtm"` | Use RTM for data delivery |
 | `transcript.enable` | `true` | Enable transcript output |
 | `tts.enabled` | `false` | Disable text-to-speech |
+| `tts.skip_patterns` | `[3, 4]` | **Critical**: Pattern 4 skips `[]` brackets (prevents tags from being spoken if TTS enabled) |
 
 ### Response Format
 
@@ -483,13 +545,31 @@ class CovSubRenderController extends EventHelper {
 
 ## 7. Product Extraction and Parsing
 
+### The Tag Lifecycle: Parse → Display → Store
+
+This is the **core innovation** of ShopScribe. The AI outputs structured tags that are:
+
+1. **Parsed** into JavaScript objects for programmatic use
+2. **Stripped** from display text for clean UI
+3. **Stored** in RTM channel metadata for persistence and database export
+
+```
+AI Output: "[[product_name: iPhone 15 Pro]][[category: Electronics]][[theme: tech]]"
+    ↓
+parseProductTags() → { product_name: "iPhone 15 Pro", category: "Electronics", theme: "tech" }
+    ↓
+stripTags() → "" (empty string for display)
+    ↓
+productHistoryRTM.addProduct() → Stored in RTM metadata (JSON-ready for database)
+```
+
 ### Core Parsing Functions
 
 Located in `src/utils/product-sync.js`:
 
 #### parseProductTags(text)
 
-Extracts all `[[key: value]]` tags from AI response (lines 43-64):
+Extracts all `[[key: value]]` tags from AI response (lines 43-64). This is the **primary function** that deciphers the structured data:
 
 ```javascript
 const TAG_RE = /\[\[(\w+):\s*([^\]]+)\]\]/g;
@@ -525,7 +605,7 @@ export function parseProductTags(text) {
 
 #### stripTags(text)
 
-Removes tags from text for clean UI display (lines 71-86):
+Removes tags from text for clean UI display (lines 71-86). This ensures tags are **never visible** to users in captions or transcripts:
 
 ```javascript
 export function stripTags(text) {
@@ -733,6 +813,89 @@ agoraService.onAgentResponse((chatHistory) => {
 | `overlayVisible` | Boolean | Controls overlay visibility |
 | `productHistory` | Array | List of captured products |
 | `transcript` | String | Cleaned text for captions |
+
+### Product History Storage and Database Export
+
+**This is a key feature** - products are stored in RTM channel metadata, making them:
+- ✅ **Persistent** across browser sessions
+- ✅ **Shared** across all participants (host + audience)
+- ✅ **Database-ready** as structured JSON
+
+#### How Product History Works
+
+Products are stored using `src/services/productHistoryRTM.js`:
+
+```javascript
+// When a product is detected:
+productHistoryRTM.addProduct(productData).then(updatedHistory => {
+  setProductHistory(updatedHistory);
+});
+```
+
+**Storage Architecture:**
+1. **Local Storage** - Immediate caching in browser `sessionStorage`
+2. **RTM Channel Metadata** - Persistent storage in Agora RTM channel
+3. **Cross-Session Access** - Products persist even after browser refresh
+4. **Multi-User Sync** - All participants see the same product history
+
+#### Product Data Structure
+
+Each product is stored as a clean JavaScript object (no tags):
+
+```javascript
+{
+  id: "product_1234567890",  // Auto-generated timestamp ID
+  product_name: "iPhone 15 Pro",
+  category: "Electronics",
+  brand: "Apple",
+  variant: "256GB, Natural Titanium",
+  features: "A17 Pro chip, Pro camera system",
+  condition: "Brand new",
+  price_estimate: "$1,199",
+  short_copy: "Latest iPhone with A17 Pro chip...",
+  theme: "tech",
+  timestamp: 1704067200000  // Unix timestamp
+}
+```
+
+#### Exporting to Database
+
+The product history is stored as JSON in RTM metadata, making it **trivially easy** to export to any database:
+
+**Example: Export to PostgreSQL**
+```javascript
+// Get product history
+const products = productHistoryRTM.getProductHistory();
+
+// Export to database
+await db.query(
+  'INSERT INTO products (product_name, category, brand, variant, price_estimate, theme, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+  [product.product_name, product.category, product.brand, product.variant, product.price_estimate, product.theme, new Date(product.timestamp)]
+);
+```
+
+**Example: Export to MongoDB**
+```javascript
+const products = productHistoryRTM.getProductHistory();
+await db.collection('products').insertMany(products);
+```
+
+**Example: Export to REST API**
+```javascript
+const products = productHistoryRTM.getProductHistory();
+await fetch('/api/products', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(products)
+});
+```
+
+**Key Benefits:**
+- ✅ **Structured data** - No parsing needed, already in JSON format
+- ✅ **Complete metadata** - All product fields included
+- ✅ **Timestamped** - Each product has creation timestamp
+- ✅ **Channel-scoped** - Products are organized by channel/stream
+- ✅ **Real-time sync** - Changes propagate to all connected clients
 
 ---
 
@@ -1040,6 +1203,16 @@ If you see errors, check:
 ├─────────────────────────────────────────────────────────────┤
 │ LLM: GPT-4o | Temp: 0.2 | Agent UID: 8888                  │
 ├─────────────────────────────────────────────────────────────┤
+│ 🎯 CORE INNOVATION: skip_patterns + Tag Parsing            │
+│                                                             │
+│ 1. AI outputs: [[product_name: iPhone]][[category: tech]] │
+│ 2. parseProductTags() → Extracts structured data         │
+│ 3. stripTags() → Removes tags from display                 │
+│ 4. productHistoryRTM → Stores in RTM (database-ready)    │
+│                                                             │
+│ skip_patterns: [3, 4] → Pattern 4 = [] brackets           │
+│ (If TTS enabled, brackets won't be spoken)                 │
+├─────────────────────────────────────────────────────────────┤
 │ TAG FORMAT: [[key: value]]                                  │
 │                                                             │
 │ REQUIRED FIELDS (at least one):                            │
@@ -1054,10 +1227,18 @@ If you see errors, check:
 │ KEY FILES:                                                  │
 │   Prompt:    src/utils/shopscribe-prompt.js                │
 │   Parsing:   src/utils/product-sync.js                     │
+│   History:   src/services/productHistoryRTM.js              │
 │   Agent:     netlify/functions/agora-agents.mjs            │
 │   Handling:  src/services/conversationalAIAPI.js           │
 │   Display:   src/components/ProductOverlay.jsx             │
 │   Config:    src/services/config.js                        │
+├─────────────────────────────────────────────────────────────┤
+│ PRODUCT HISTORY:                                            │
+│   • Stored in RTM channel metadata                         │
+│   • JSON format (database-ready)                           │
+│   • Cross-session persistence                              │
+│   • Multi-user sync                                        │
+│   • Export: productHistoryRTM.getProductHistory()          │
 ├─────────────────────────────────────────────────────────────┤
 │ ENV VARS (required):                                        │
 │   REACT_APP_AGORA_APP_ID | AGORA_CUSTOMER_ID               │
