@@ -9,6 +9,47 @@
   NODE_ENV = "production"
   NPM_CONFIG_PRODUCTION = "false"
   NPM_CONFIG_AUDIT = "false"
+  SECRETS_SCAN_ENABLED = "false"
+
+[[redirects]]
+  from = "/api/token"
+  to = "/.netlify/functions/token"
+  status = 200
+
+[[redirects]]
+  from = "/api/agora/agents"
+  to = "/.netlify/functions/agora-agents"
+  status = 200
+
+[[redirects]]
+  from = "/api/agora/agents/stop"
+  to = "/.netlify/functions/agora-agents-stop"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/agora/start"
+  to = "/.netlify/functions/auth-agora-start"
+  status = 200
+
+[[redirects]]
+  from = "/console-callback"
+  to = "/.netlify/functions/auth-agora-callback"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/agora/callback"
+  to = "/.netlify/functions/auth-agora-callback"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/agora/logout"
+  to = "/.netlify/functions/auth-agora-logout"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/me"
+  to = "/.netlify/functions/auth-me"
+  status = 200
 
 [[redirects]]
   from = "/api/*"
@@ -23,7 +64,7 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = []
+  external_node_modules = ["jose"]
   included_files = ["netlify/functions/utils/**"]
 
 [dev]

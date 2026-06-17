@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { requireSessionUser } from './utils/auth.mjs';
 
 export default async (req, ctx) => {
   // Only allow POST requests
@@ -11,6 +12,9 @@ export default async (req, ctx) => {
       headers: { 'Content-Type': 'application/json' }
     });
   }
+
+  const { response: authResponse } = await requireSessionUser(req);
+  if (authResponse) return authResponse;
 
   try {
     // Get request body

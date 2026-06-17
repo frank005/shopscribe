@@ -11,6 +11,7 @@
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "framer-motion": "^10.16.5",
+    "jose": "^5.10.0",
     "lucide-react": "^0.294.0",
     "node-fetch": "^3.3.2",
     "pako": "^2.1.0",

@@ -9,9 +9,11 @@ import AudiencePage from './pages/AudiencePage';
 
 // Components
 import Navigation from './components/Navigation';
+import AgoraAuthGate from './components/AgoraAuthGate';
 
 function App() {
   return (
+    <AgoraAuthGate>
     <Router>
       <div className="min-h-screen bg-gray-50">
         <Navigation />
@@ -62,6 +64,7 @@ function App() {
         />
       </div>
     </Router>
+    </AgoraAuthGate>
   );
 }
 

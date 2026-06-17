@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, Video, Users, Home } from 'lucide-react';
+import { ShoppingBag, Video, Users, Home, Clock, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navigation() {
   const location = useLocation();
+  const { authUser, sessionTimer, signOutUrl } = useAuth();
+  const { timeRemaining, showWarning, formatTimeRemaining } = sessionTimer;
 
   const navItems = [
     { path: '/lobby', label: 'Browse', icon: Home },
@@ -16,17 +19,18 @@ export default function Navigation() {
     return location.pathname === path;
   };
 
+  const displayName =
+    authUser?.name || authUser?.email?.split('@')[0] || 'User';
+
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <Link to="/lobby" className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <ShoppingBag className="text-primary-600" size={24} />
             <span>ShopScribe</span>
           </Link>
 
-          {/* Navigation Links */}
           <div className="flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -47,11 +51,31 @@ export default function Navigation() {
             })}
           </div>
 
-          {/* Right side - could add user menu, settings, etc. */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-primary-600 font-medium text-sm">U</span>
+          <div className="flex items-center gap-3">
+            {timeRemaining !== null && timeRemaining !== Infinity && (
+              <div
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${
+                  showWarning
+                    ? 'bg-secondary-100 text-secondary-800'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                <Clock size={12} />
+                <span>{formatTimeRemaining(timeRemaining)}</span>
+              </div>
+            )}
+            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-full flex items-center justify-center">
+              <span className="text-white font-medium text-sm">
+                {displayName.charAt(0).toUpperCase()}
+              </span>
             </div>
+            <a
+              href={signOutUrl}
+              className="text-gray-500 hover:text-gray-700 p-1"
+              title="Sign out"
+            >
+              <LogOut size={18} />
+            </a>
           </div>
         </div>
       </div>

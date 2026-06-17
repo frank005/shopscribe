@@ -16,8 +16,11 @@ import ProductOverlay from '../components/ProductOverlay';
 import ProductHistory from '../components/ProductHistory';
 import HostControls from '../components/HostControls';
 import DeviceSettings from '../components/DeviceSettings';
+import { useAuth } from '../context/AuthContext';
 
 export default function HostPage() {
+  const { sessionTimer } = useAuth();
+  const { startTracking, stopTracking } = sessionTimer;
   
   // State management
   const [isConnected, setIsConnected] = useState(false);
@@ -301,6 +304,15 @@ export default function HostPage() {
 
     return () => clearInterval(interval);
   }, [isConnected, channelName]);
+
+  useEffect(() => {
+    if (isConnected) {
+      startTracking();
+    } else {
+      stopTracking();
+    }
+    return () => stopTracking();
+  }, [isConnected, startTracking, stopTracking]);
 
   // Cleanup on unmount
   useEffect(() => {
