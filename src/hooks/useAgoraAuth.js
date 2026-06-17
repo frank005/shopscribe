@@ -18,9 +18,22 @@ export function useAgoraAuth() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get("authError");
+    let cleaned = false;
+
     if (err) {
       setAuthError(err);
       params.delete("authError");
+      cleaned = true;
+    }
+
+    for (const key of ["code", "state", "loginId", "error"]) {
+      if (params.has(key)) {
+        params.delete(key);
+        cleaned = true;
+      }
+    }
+
+    if (cleaned) {
       const qs = params.toString();
       window.history.replaceState(
         null,
@@ -28,6 +41,7 @@ export function useAgoraAuth() {
         `${window.location.pathname}${qs ? `?${qs}` : ""}`,
       );
     }
+
     refreshMe().catch((err) => console.error("[useAgoraAuth] me failed", err));
   }, [refreshMe]);
 

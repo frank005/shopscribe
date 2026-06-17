@@ -7,6 +7,8 @@ export default function Navigation() {
   const location = useLocation();
   const { authUser, sessionTimer, signOutUrl } = useAuth();
   const { timeRemaining, showWarning, formatTimeRemaining } = sessionTimer;
+  const showQuotaBadge = timeRemaining !== null;
+  const quotaUnlimited = timeRemaining === Infinity;
 
   const navItems = [
     { path: '/lobby', label: 'Browse', icon: Home },
@@ -52,16 +54,26 @@ export default function Navigation() {
           </div>
 
           <div className="flex items-center gap-3">
-            {timeRemaining !== null && timeRemaining !== Infinity && (
+            {showQuotaBadge && (
               <div
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${
-                  showWarning
-                    ? 'bg-secondary-100 text-secondary-800'
-                    : 'bg-gray-100 text-gray-600'
+                  quotaUnlimited
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : showWarning
+                      ? 'bg-secondary-100 text-secondary-800'
+                      : 'bg-gray-100 text-gray-600'
                 }`}
               >
                 <Clock size={12} />
-                <span>{formatTimeRemaining(timeRemaining)}</span>
+                <span
+                  title={
+                    quotaUnlimited
+                      ? 'Unlimited demo time for Agora accounts'
+                      : 'Daily demo time remaining (UTC day)'
+                  }
+                >
+                  {quotaUnlimited ? 'Unlimited' : formatTimeRemaining(timeRemaining)}
+                </span>
               </div>
             )}
             <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-full flex items-center justify-center">
